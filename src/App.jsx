@@ -18,72 +18,156 @@ export default function App() {
   }, []);
 
   async function fetchAll() {
-    const { data: usuarios } = await supabase.from("usuarios").select("*").order("nombre");
-    const { data: peliculas } = await supabase
-      .from("peliculas")
-      .select("*, vistas(*)")
-      .order("titulo");
+    try {
+      // 1. Obtener usuario autenticado primero
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // 2. Obtener todos los usuarios
+      const { data: usuarios } = await supabase.from("usuarios").select("*").order("nombre");
+      
+      // 3. Obtener películas con vistas
+      const { data: peliculas } = await supabase
+        .from("peliculas")
+        .select("*, vistas(*)")
+        .order("titulo");
 
-    // Asegurar que cada pelicula tenga vistas array (si null)
-    const normalized = peliculas?.map(p => ({ ...p, vistas: p.vistas || [] })) || [];
+      // 4. Normalizar películas
+      const normalized = peliculas?.map(p => ({ 
+        ...p, 
+        vistas: p.vistas || [] 
+      })) || [];
 
-    setUsers(usuarios || []);
-    setMovies(normalized);
-    setCurrentUser((usuarios && usuarios[0]) || null);
+      setUsers(usuarios || []);
+      setMovies(normalized);
+      
+      // 5. Establecer usuario actual: primero el autenticado, luego el primero de la lista
+      if (user && usuarios) {
+        const authUser = usuarios.find(u => u.id === user.id);
+        setCurrentUser(authUser || usuarios[0] || null);
+      } else {
+        setCurrentUser(usuarios?.[0] || null);
+      }
+
+      console.log('Usuario actual:', currentUser); // Para debug
+      console.log('Películas cargadas:', normalized.length); // Para debug
+      
+    } catch (error) {
+      console.error('Error en fetchAll:', error);
+    }
   }
 
   async function addMovie(payload) {
-    // payload: { titulo, genero, anio, plataforma, descripcion, poster }
-    const insert = { ...payload, agregado_por: currentUser.id };
-    const { data, error } = await supabase
-      .from("peliculas")
-      .insert([insert])
-      .select("*, vistas(*)");
+    try {
+      // payload: { titulo, genero, anio, plataforma, descripcion, poster }
+      const insert = { ...payload, agregado_por: currentUser.id };
+      const { data, error } = await supabase
+        .from("peliculas")
+        .insert([insert])
+        .select("*, vistas(*)");
 
-    if (!error && data?.[0]) {
-      setMovies(prev => [...prev, { ...data[0], vistas: data[0].vistas || [] }]);
-      return true;
+      if (!error && data?.[0]) {
+        setMovies(prev => [...prev, { ...data[0], vistas: data[0].vistas || [] }]);
+        return true;
+      }
+      console.error('Error al agregar película:', error);
+      return false;
+    } catch (error) {
+      console.error('Error en addMovie:', error);
+      return false;
     }
-    return false;
   }
 
   async function toggleView(movieId, userId, estado) {
-    // upsert vista
-    const { data, error } = await supabase
-      .from("vistas")
-      .upsert([{ usuario_id: userId, pelicula_id: movieId, estado }], {
-        onConflict: "usuario_id,pelicula_id"
-      })
-      .select();
-
-    if (!error) {
-      // actualizar estado localmente
+    console.log('toggleView llamado:', { movieId, userId, estado, currentUserId: currentUser?.id }); // Debug
+    
+    try {
+      // 1. Optimistic update (actualizar UI inmediatamente)
       setMovies(prev => prev.map(m => {
         if (m.id !== movieId) return m;
-        // si ya existía la vista, actualizar; si no, agregar
-        const exists = (m.vistas || []).some(v => v.usuario_id === userId);
-        let vistas = m.vistas || [];
-        if (exists) {
-          vistas = vistas.map(v => v.usuario_id === userId ? { ...v, estado } : v);
+        
+        // Buscar vista existente
+        const vistaExistente = (m.vistas || []).find(v => v.usuario_id === userId);
+        let vistasActualizadas;
+        
+        if (vistaExistente) {
+          // Actualizar entrada existente
+          vistasActualizadas = m.vistas.map(v => 
+            v.usuario_id === userId 
+              ? { ...v, estado, created_at: new Date().toISOString() }
+              : v
+          );
         } else {
-          vistas = [...vistas, { usuario_id: userId, estado }];
+          // Crear nueva entrada
+          vistasActualizadas = [
+            ...(m.vistas || []),
+            { 
+              usuario_id: userId, 
+              estado, 
+              created_at: new Date().toISOString(),
+              pelicula_id: movieId // Para consistencia
+            }
+          ];
         }
-        return { ...m, vistas };
+        
+        return { ...m, vistas: vistasActualizadas };
       }));
+
+      // 2. Actualizar en Supabase
+      const { error } = await supabase
+        .from("vistas")
+        .upsert(
+          [{ 
+            usuario_id: userId, 
+            pelicula_id: movieId, 
+            estado,
+            updated_at: new Date().toISOString()
+          }], 
+          { 
+            onConflict: "usuario_id,pelicula_id" 
+          }
+        );
+
+      if (error) {
+        console.error('Error en Supabase upsert:', error);
+        throw error;
+      }
+
+      console.log('Vista actualizada correctamente en DB'); // Debug
+      
+    } catch (error) {
+      console.error('Error en toggleView:', error);
+      
+      // Revertir optimistic update
+      fetchAll();
+      
+      // Mostrar error al usuario
+      alert('Error al actualizar el estado. Inténtalo de nuevo.');
     }
   }
 
   async function deleteMovie(movieId) {
-    // borrar solo si currentUser es el que agregó
-    const pelicula = movies.find(m => m.id === movieId);
-    if (!pelicula) return;
-    if (pelicula.agregado_por !== currentUser.id) {
-      alert("Solo quien agregó la película puede eliminarla.");
-      return;
-    }
-    const { error } = await supabase.from("peliculas").delete().eq("id", movieId);
-    if (!error) {
-      setMovies(prev => prev.filter(m => m.id !== movieId));
+    try {
+      // Verificar permisos
+      const pelicula = movies.find(m => m.id === movieId);
+      if (!pelicula) return;
+      if (pelicula.agregado_por !== currentUser.id) {
+        alert("Solo quien agregó la película puede eliminarla.");
+        return;
+      }
+
+      // Eliminar película (esto eliminará automáticamente las vistas si tienes ON DELETE CASCADE)
+      const { error } = await supabase.from("peliculas").delete().eq("id", movieId);
+      
+      if (!error) {
+        setMovies(prev => prev.filter(m => m.id !== movieId));
+        console.log('Película eliminada correctamente');
+      } else {
+        console.error('Error al eliminar película:', error);
+        alert('Error al eliminar la película');
+      }
+    } catch (error) {
+      console.error('Error en deleteMovie:', error);
+      alert('Error al eliminar la película');
     }
   }
 
@@ -110,12 +194,18 @@ export default function App() {
         </section>
 
         <section className="mb-8">
-          <MovieGrid
-            movies={movies}
-            currentUser={currentUser}
-            toggleView={toggleView}
-            onDelete={deleteMovie}
-          />
+          {currentUser ? (
+            <MovieGrid
+              movies={movies}
+              currentUser={currentUser}
+              toggleView={toggleView}
+              onDelete={deleteMovie}
+            />
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Cargando usuario...</p>
+            </div>
+          )}
         </section>
 
         <section>
