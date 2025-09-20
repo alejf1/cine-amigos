@@ -233,7 +233,7 @@ async function fetchAll() {
           <div className="flex flex-col md:flex-row md:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold">Novedades del grupo</h1>
-              <p className="text-sm text-gray-500">Explorá las recomendaciones de tus amigos.</p>
+              <p className="text-sm text-gray-500">Explorá las recomendaciones de de lo' pibe'.</p>
             </div>
             <div className="flex items-center gap-4">
               <UserStats user={currentUser} movies={movies} />
