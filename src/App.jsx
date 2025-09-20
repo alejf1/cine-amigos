@@ -77,73 +77,47 @@ export default function App() {
     }
   }
 
-  async function toggleView(movieId, userId, estado) {
-    console.log('toggleView llamado:', { movieId, userId, estado, currentUserId: currentUser?.id }); // Debug
+async function fetchAll() {
+  try {
+    // 1. Obtener usuario autenticado de Supabase Auth
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log('Usuario de auth:', user?.id); // Para debug
     
-    try {
-      // 1. Optimistic update (actualizar UI inmediatamente)
-      setMovies(prev => prev.map(m => {
-        if (m.id !== movieId) return m;
-        
-        // Buscar vista existente
-        const vistaExistente = (m.vistas || []).find(v => v.usuario_id === userId);
-        let vistasActualizadas;
-        
-        if (vistaExistente) {
-          // Actualizar entrada existente
-          vistasActualizadas = m.vistas.map(v => 
-            v.usuario_id === userId 
-              ? { ...v, estado, created_at: new Date().toISOString() }
-              : v
-          );
-        } else {
-          // Crear nueva entrada
-          vistasActualizadas = [
-            ...(m.vistas || []),
-            { 
-              usuario_id: userId, 
-              estado, 
-              created_at: new Date().toISOString(),
-              pelicula_id: movieId // Para consistencia
-            }
-          ];
-        }
-        
-        return { ...m, vistas: vistasActualizadas };
-      }));
+    // 2. Obtener todos los usuarios de la tabla usuarios
+    const { data: usuarios } = await supabase.from("usuarios").select("*").order("nombre");
+    console.log('Usuarios de DB:', usuarios?.map(u => ({ id: u.id, nombre: u.nombre })));
+    
+    // 3. Obtener películas con vistas
+    const { data: peliculas } = await supabase
+      .from("peliculas")
+      .select("*, vistas(*)")
+      .order("titulo");
 
-      // 2. Actualizar en Supabase
-      const { error } = await supabase
-        .from("vistas")
-        .upsert(
-          [{ 
-            usuario_id: userId, 
-            pelicula_id: movieId, 
-            estado,
-            updated_at: new Date().toISOString()
-          }], 
-          { 
-            onConflict: "usuario_id,pelicula_id" 
-          }
-        );
+    // 4. Normalizar películas
+    const normalized = peliculas?.map(p => ({ 
+      ...p, 
+      vistas: p.vistas || [] 
+    })) || [];
 
-      if (error) {
-        console.error('Error en Supabase upsert:', error);
-        throw error;
-      }
-
-      console.log('Vista actualizada correctamente en DB'); // Debug
-      
-    } catch (error) {
-      console.error('Error en toggleView:', error);
-      
-      // Revertir optimistic update
-      fetchAll();
-      
-      // Mostrar error al usuario
-      alert('Error al actualizar el estado. Inténtalo de nuevo.');
+    setUsers(usuarios || []);
+    setMovies(normalized);
+    
+    // 5. Establecer usuario actual: buscar el usuario autenticado en la tabla usuarios
+    if (user && usuarios) {
+      const authUser = usuarios.find(u => u.id === user.id);
+      console.log('Usuario autenticado encontrado:', authUser?.nombre, authUser?.id);
+      setCurrentUser(authUser || usuarios[0] || null);
+    } else {
+      setCurrentUser(usuarios?.[0] || null);
     }
+
+    console.log('Usuario actual final:', currentUser?.id);
+    console.log('Películas cargadas:', normalized.length);
+    
+  } catch (error) {
+    console.error('Error en fetchAll:', error);
   }
+}
 
   async function deleteMovie(movieId) {
     try {
