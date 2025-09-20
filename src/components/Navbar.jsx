@@ -7,8 +7,8 @@ export default function Navbar({ users, currentUser, setCurrentUser, onOpenAdd }
     <nav className="bg-white shadow sticky top-0 z-30">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="text-2xl font-bold">🎬 Cine de topus</div>
-          <div className="text-sm text-gray-500 hidden md:block">Compartí recomendaciones para matar el aburrimiento.</div>
+          <div className="text-2xl font-bold">🎬 Los pibes cinéfilos</div>
+          <div className="text-sm text-gray-500 hidden md:block">Son todos putos menos el Ale - By emi.</div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -44,4 +44,5 @@ export default function Navbar({ users, currentUser, setCurrentUser, onOpenAdd }
     </nav>
   );
 }
+
 
