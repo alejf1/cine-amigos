@@ -77,6 +77,80 @@ export default function App() {
     }
   }
 
+async function toggleView(movieId, userId, estado) {
+  console.log('toggleView llamado:', { movieId, userId, estado, currentUserId: currentUser?.id });
+  
+  // Verificar que tengamos IDs válidos
+  if (!movieId || !userId) {
+    console.error('IDs faltantes:', { movieId, userId });
+    alert('Error: IDs faltantes');
+    return;
+  }
+  
+  try {
+    // 1. Optimistic update (actualizar UI inmediatamente)
+    setMovies(prev => prev.map(m => {
+      if (m.id !== movieId) return m;
+      
+      // Buscar vista existente
+      const vistaExistente = (m.vistas || []).find(v => v.usuario_id === userId);
+      let vistasActualizadas;
+      
+      if (vistaExistente) {
+        // Actualizar entrada existente (sin created_at)
+        vistasActualizadas = m.vistas.map(v => 
+          v.usuario_id === userId 
+            ? { ...v, estado }
+            : v
+        );
+      } else {
+        // Crear nueva entrada (sin created_at)
+        vistasActualizadas = [
+          ...(m.vistas || []),
+          { 
+            usuario_id: userId, 
+            estado,
+            pelicula_id: movieId 
+          }
+        ];
+      }
+      
+      return { ...m, vistas: vistasActualizadas };
+    }));
+
+    // 2. Actualizar en Supabase - SOLO con campos que existen
+    const { error } = await supabase
+      .from("vistas")
+      .upsert(
+        [{ 
+          usuario_id: userId, 
+          pelicula_id: movieId, 
+          estado
+          // NO incluir created_at ni updated_at porque no existen
+        }], 
+        { 
+          onConflict: "usuario_id,pelicula_id" 
+        }
+      );
+
+    if (error) {
+      console.error('Error en Supabase upsert:', error);
+      throw error;
+    }
+
+    console.log('Vista actualizada correctamente en DB');
+    
+  } catch (error) {
+    console.error('Error en toggleView:', error);
+    
+    // Revertir optimistic update
+    fetchAll();
+    
+    // Mostrar error al usuario
+    alert('Error al actualizar el estado. Inténtalo de nuevo.');
+  }
+}
+
 async function fetchAll() {
   try {
     // 1. Obtener usuario autenticado de Supabase Auth
