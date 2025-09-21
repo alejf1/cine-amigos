@@ -1,7 +1,6 @@
 import { Fragment, useState, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { useMovieSearch } from "cine-amigos/src/hooks/useMovieSearch";
-import { getGenreName } from "cine-amigos/src/hooks/useMovieSearch";
+import { useMovieSearch, getGenreName } from "cine-amigos/src/hooks/useMovieSearch";
 
 export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
   const [titulo, setTitulo] = useState("");
@@ -9,9 +8,8 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
   const [anio, setAnio] = useState("");
   const [poster, setPoster] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false); // ← NUEVO ESTADO
+  const [isSelecting, setIsSelecting] = useState(false);
 
-  // ← PASAR isSelecting al hook
   const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting);
 
   // Pre-cargar datos cuando se abre el modal
@@ -21,7 +19,7 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
       setGenero(movie.genero || "");
       setAnio(movie.anio ? movie.anio.toString() : "");
       setPoster(movie.poster || "");
-      setIsSelecting(false); // ← RESET
+      setIsSelecting(false);
     }
   }, [open, movie]);
 
@@ -42,7 +40,7 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
     
     if (ok) {
       setTitulo(""); setGenero(""); setAnio(""); setPoster("");
-      setIsSelecting(false); // ← RESET
+      setIsSelecting(false);
       setOpen(false);
     } else {
       alert("Error al editar la película");
@@ -66,13 +64,12 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
                     value={titulo} 
                     onChange={e => {
                       setTitulo(e.target.value);
-                      setIsSelecting(false); // ← RESET cuando el usuario tipea manualmente
+                      setIsSelecting(false);
                     }} 
                     placeholder="Título (se autocompletará)" 
                     className="w-full border p-2 rounded" 
                     required 
                   />
-                  {/* ← MISMO DROPDOWN CON LA CONDICIÓN */}
                   {suggestions.length > 0 && !isSelecting && (
                     <ul className="absolute z-50 w-full bg-white border mt-1 rounded-md shadow-lg max-h-48 overflow-auto">
                       {suggestions.map((sug, idx) => (
