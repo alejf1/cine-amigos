@@ -1,3 +1,5 @@
+import { StarIcon } from "@heroicons/react/24/outline";
+
 export default function Leaderboard({ users, movies }) {
   const ranking = (users || []).map(u => {
     const total = movies.length;
@@ -56,3 +58,4 @@ export default function Leaderboard({ users, movies }) {
     </div>
   );
 }
+
