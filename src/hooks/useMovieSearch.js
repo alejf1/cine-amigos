@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 
-export function useMovieSearch(titulo, isSelecting = false) { // ← AGREGAR isSelecting
+export function useMovieSearch(titulo, isSelecting = false) {
   const [suggestions, setSuggestions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
-    // ← SOLUCIÓN: Solo buscar si NO está seleccionando
+    // Solo buscar si NO está seleccionando
     if (!titulo || titulo.length < 3 || isSelecting) {
-      if (!isSelecting) setSuggestions([]); // Solo limpiar si no está seleccionando
+      if (!isSelecting) setSuggestions([]);
       return;
     }
 
@@ -55,25 +55,25 @@ export function useMovieSearch(titulo, isSelecting = false) { // ← AGREGAR isS
 
     const timeoutId = setTimeout(searchMovies, 300);
     return () => clearTimeout(timeoutId);
-  }, [titulo, isSelecting]); // ← AGREGAR isSelecting a las dependencias
+  }, [titulo, isSelecting]);
 
   const handleSuggestionSelect = (suggestion, setTitulo, setGenero, setAnio, setPoster, setIsSelecting) => {
     // Detectar idioma y ajustar título
     const isSpanish = suggestion.original_title?.toLowerCase() !== suggestion.title?.toLowerCase();
     const displayTitle = isSpanish ? suggestion.title : suggestion.original_title || suggestion.title;
     
-    // ← PAUSAR BÚSQUEDA MIENTRAS SE SELECCIONA
+    // Pausar búsqueda mientras se selecciona
     setIsSelecting(true);
     
     setTitulo(displayTitle);
     setGenero(suggestion.genre_ids?.map(getGenreName).join(', ') || '');
     setAnio(suggestion.release_date ? suggestion.release_date.split('-')[0] : '');
-    setPoster(suggestion.poster_path ? `https://image.tmd b.org/t/p/w500${suggestion.poster_path}` : '');
+    setPoster(suggestion.poster_path ? `https://image.tmdb.org/t/p/w500${suggestion.poster_path}` : '');
     
-    // ← REANUDAR BÚSQUEDA DESPUÉS DE UN BREVE DELAY
+    // Reanudar búsqueda después de un breve delay
     setTimeout(() => {
       setIsSelecting(false);
-      setSuggestions([]); // Asegurar que se limpien las sugerencias
+      setSuggestions([]);
     }, 500);
   };
 
