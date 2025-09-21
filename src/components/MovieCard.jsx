@@ -39,7 +39,7 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
         )}
       </div>
 
-      <div className="p-3 bg-white">
+      <div className="p-2 sm:p-3 bg-white">
         <div className="flex justify-between items-start gap-2">
           <div>
             <h3 className="font-semibold text-sm">{movie.titulo}</h3>
@@ -126,3 +126,4 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
     </motion.div>
   );
 }
+
