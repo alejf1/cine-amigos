@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { useMovieSearch } from "cine-amigos/src/components/hooks/useMovieSearch";
+import { useMovieSearch } from "cine-amigos/src/hooks/useMovieSearch";
 
 export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
   const [titulo, setTitulo] = useState("");
@@ -157,4 +157,4 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
 }
 
 // ← IMPORTAR getGenreName
-import { getGenreName } from "cine-amigos/src/components/hooks/useMovieSearch";
+import { getGenreName } from "cine-amigos/src/hooks/useMovieSearch";
