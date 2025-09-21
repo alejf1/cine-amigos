@@ -22,23 +22,20 @@ export default function App() {
 
   async function fetchAll() {
     try {
-      // 1. Obtener usuario autenticado de Supabase Auth
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      console.log("Usuario de auth:", user?.id); // Para debug
+      console.log("Usuario de auth:", user?.id);
 
-      // 2. Obtener todos los usuarios de la tabla usuarios
       const { data: usuarios } = await supabase
         .from("usuarios")
         .select("*")
         .order("nombre");
+
       console.log(
         "Usuarios de DB:",
         usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
       );
-
-      // 3. Obtener películas con vistas
 
       const { data: peliculas } = await supabase
         .from("peliculas")
@@ -54,7 +51,6 @@ export default function App() {
         )
         .order("titulo");
 
-      // 4. Normalizar películas
       const normalized =
         peliculas?.map((p) => ({
           ...p,
@@ -63,7 +59,6 @@ export default function App() {
       setUsers(usuarios || []);
       setMovies(normalized);
 
-      // 5. Establecer usuario actual: buscar el usuario autenticado en la tabla usuarios
       if (user && usuarios) {
         const authUser = usuarios.find((u) => u.id === user.id);
         console.log(
@@ -84,7 +79,6 @@ export default function App() {
 
   async function addMovie(payload) {
     try {
-      // payload: { titulo, genero, anio, plataforma, descripcion, poster }
       const insert = { ...payload, agregado_por: currentUser.id };
       const { data, error } = await supabase
         .from("peliculas")
@@ -113,7 +107,6 @@ export default function App() {
       currentUserId: currentUser?.id,
     });
 
-    // Verificar que tengamos IDs válidos
     if (!movieId || !userId) {
       console.error("IDs faltantes:", { movieId, userId });
       alert("Error: IDs faltantes");
@@ -121,24 +114,19 @@ export default function App() {
     }
 
     try {
-      // 1. Optimistic update (actualizar UI inmediatamente)
       setMovies((prev) =>
         prev.map((m) => {
           if (m.id !== movieId) return m;
-
-          // Buscar vista existente
           const vistaExistente = (m.vistas || []).find(
             (v) => v.usuario_id === userId
           );
           let vistasActualizadas;
 
           if (vistaExistente) {
-            // Actualizar entrada existente (sin created_at)
             vistasActualizadas = m.vistas.map((v) =>
               v.usuario_id === userId ? { ...v, estado } : v
             );
           } else {
-            // Crear nueva entrada (sin created_at)
             vistasActualizadas = [
               ...(m.vistas || []),
               {
@@ -148,18 +136,16 @@ export default function App() {
               },
             ];
           }
-
           return { ...m, vistas: vistasActualizadas };
         })
       );
-      // 2. Actualizar en Supabase - SOLO con campos que existen
+
       const { error } = await supabase.from("vistas").upsert(
         [
           {
             usuario_id: userId,
             pelicula_id: movieId,
             estado,
-            // NO incluir created_at ni updated_at porque no existen
           },
         ],
         {
@@ -173,25 +159,19 @@ export default function App() {
       console.log("Vista actualizada correctamente en DB");
     } catch (error) {
       console.error("Error en toggleView:", error);
-
-      // Revertir optimistic update
       fetchAll();
-
-      // Mostrar error al usuario
       alert("Error al actualizar el estado. Inténtalo de nuevo.");
     }
   }
 
   async function deleteMovie(movieId) {
     try {
-      // Verificar permisos
       const pelicula = movies.find((m) => m.id === movieId);
       if (!pelicula) return;
       if (pelicula.agregado_por !== currentUser.id) {
         alert("Solo quien agregó la película puede eliminarla.");
         return;
       }
-      // Eliminar película (esto eliminará automáticamente las vistas si tienes ON DELETE CASCADE)
       const { error } = await supabase
         .from("peliculas")
         .delete()
@@ -210,7 +190,6 @@ export default function App() {
     }
   }
 
-  // ← NUEVAS FUNCIONES PARA EDICIÓN
   const handleEditMovie = (movie) => {
     setEditingMovie(movie);
     setOpenEdit(true);
@@ -218,14 +197,12 @@ export default function App() {
 
   async function updateMovie(movieId, updatedData) {
     try {
-      // Verificar permisos
       const pelicula = movies.find((m) => m.id === movieId);
       if (!pelicula || pelicula.agregado_por !== currentUser.id) {
         alert("Solo quien agregó la película puede editarla.");
         return false;
       }
 
-      // Actualizar en Supabase
       const { data, error } = await supabase
         .from("peliculas")
         .update(updatedData)
@@ -233,7 +210,6 @@ export default function App() {
         .select("*, vistas(*)");
 
       if (!error && data?.[0]) {
-        // Actualizar el estado local
         setMovies((prev) =>
           prev.map((movie) =>
             movie.id === movieId
@@ -250,6 +226,50 @@ export default function App() {
     } catch (error) {
       console.error("Error en updateMovie:", error);
       return false;
+    }
+  }
+
+  async function updateRating(movieId, userId, rating) {
+    try {
+      const response = await fetch("/api/ratings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ movieId, userId, rating }),
+      });
+
+      if (response.ok) {
+        setMovies((prev) =>
+          prev.map((movie) =>
+            movie.id === movieId
+              ? {
+                  ...movie,
+                  ratings: movie.ratings?.find((r) => r.usuario_id === userId)
+                    ? movie.ratings.map((r) =>
+                        r.usuario_id === userId ? { ...r, rating } : r
+                      )
+                    : [
+                        ...(movie.ratings || []),
+                        {
+                          id: Date.now(),
+                          usuario_id: userId,
+                          rating,
+                          created_at: new Date().toISOString(),
+                        },
+                      ],
+                }
+              : movie
+          )
+        );
+      } else {
+        console.error(
+          "Error en la respuesta del servidor:",
+          response.statusText
+        );
+      }
+    } catch (error) {
+      console.error("Error updating rating:", error);
     }
   }
 
@@ -282,7 +302,8 @@ export default function App() {
               currentUser={currentUser}
               toggleView={toggleView}
               onDelete={deleteMovie}
-              onEdit={handleEditMovie} // ← NUEVA PROP
+              onEdit={handleEditMovie}
+              updateRating={updateRating}
             />
           ) : (
             <div className="text-center py-12">
@@ -296,7 +317,6 @@ export default function App() {
       </main>
       <AddMovieModal open={openAdd} setOpen={setOpenAdd} addMovie={addMovie} />
 
-      {/* ← NUEVO MODAL DE EDICIÓN */}
       <EditMovieModal
         open={openEdit}
         setOpen={setOpenEdit}
@@ -306,56 +326,3 @@ export default function App() {
     </div>
   );
 }
-
-// función updateRating
-const updateRating = async (movieId, userId, rating) => {
-  try {
-    const response = await fetch("/api/ratings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ movieId, userId, rating }),
-    });
-
-    if (response.ok) {
-      // Actualizar estado local optimistamente
-      setMovies((prev) =>
-        prev.map((movie) =>
-          movie.id === movieId
-            ? {
-                ...movie,
-                ratings: movie.ratings?.find((r) => r.usuario_id === userId)
-                  ? movie.ratings.map((r) =>
-                      r.usuario_id === userId ? { ...r, rating } : r
-                    )
-                  : [
-                      ...(movie.ratings || []),
-                      {
-                        id: Date.now(), // ID temporal para el frontend
-                        usuario_id: userId,
-                        rating,
-                        created_at: new Date().toISOString(),
-                      },
-                    ],
-              }
-            : movie
-        )
-      );
-    } else {
-      console.error("Error en la respuesta del servidor:", response.statusText);
-    }
-  } catch (error) {
-    console.error("Error updating rating:", error);
-  }
-};
-
-// Al renderizar MovieGrid:
-<MovieGrid
-  movies={movies}
-  currentUser={currentUser}
-  toggleView={toggleView}
-  onDelete={onDelete}
-  onEdit={onEdit}
-  updateRating={updateRating} // ← PASAR LA FUNCIÓN
-/>;
