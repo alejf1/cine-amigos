@@ -1,6 +1,6 @@
 import MovieCard from "./MovieCard";
 
-export default function MovieGrid({ movies, currentUser, toggleView, onDelete, onEdit }) {
+export default function MovieGrid({ movies, currentUser, toggleView, onDelete, onEdit, updateRating }) {
   // Orden: primero las que nadie vio, luego ascendente por cantidad de vistas
   const sorted = [...movies].sort((a,b) => {
     const aCount = (a.vistas || []).filter(v=>v.estado==="vista").length;
@@ -20,6 +20,7 @@ export default function MovieGrid({ movies, currentUser, toggleView, onDelete, o
           toggleView={toggleView}
           onDelete={onDelete}
           onEdit={onEdit}
+          updateRating={updateRating} // ← NUEVO PROP
         />
       ))}
     </div>
