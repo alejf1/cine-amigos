@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { useMovieSearch, getGenreName } from "cine-amigos/src/hooks/useMovieSearch";
+import { useMovieSearch, getGenreName } from ".../hooks/useMovieSearch";
 
 export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
   const [titulo, setTitulo] = useState("");
