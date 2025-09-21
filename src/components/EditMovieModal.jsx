@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useMovieSearch } from "cine-amigos/src/hooks/useMovieSearch";
+import { getGenreName } from "cine-amigos/src/hooks/useMovieSearch";
 
 export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
   const [titulo, setTitulo] = useState("");
@@ -8,9 +9,10 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
   const [anio, setAnio] = useState("");
   const [poster, setPoster] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false); // ← NUEVO ESTADO
 
-  // ← USAR EL HOOK
-  const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo);
+  // ← PASAR isSelecting al hook
+  const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting);
 
   // Pre-cargar datos cuando se abre el modal
   useEffect(() => {
@@ -19,6 +21,7 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
       setGenero(movie.genero || "");
       setAnio(movie.anio ? movie.anio.toString() : "");
       setPoster(movie.poster || "");
+      setIsSelecting(false); // ← RESET
     }
   }, [open, movie]);
 
@@ -39,6 +42,7 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
     
     if (ok) {
       setTitulo(""); setGenero(""); setAnio(""); setPoster("");
+      setIsSelecting(false); // ← RESET
       setOpen(false);
     } else {
       alert("Error al editar la película");
@@ -60,13 +64,16 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
                 <div className="relative">
                   <input 
                     value={titulo} 
-                    onChange={e => setTitulo(e.target.value)} 
+                    onChange={e => {
+                      setTitulo(e.target.value);
+                      setIsSelecting(false); // ← RESET cuando el usuario tipea manualmente
+                    }} 
                     placeholder="Título (se autocompletará)" 
                     className="w-full border p-2 rounded" 
                     required 
                   />
-                  {/* ← MISMO DROPDOWN QUE ADD */}
-                  {suggestions.length > 0 && (
+                  {/* ← MISMO DROPDOWN CON LA CONDICIÓN */}
+                  {suggestions.length > 0 && !isSelecting && (
                     <ul className="absolute z-50 w-full bg-white border mt-1 rounded-md shadow-lg max-h-48 overflow-auto">
                       {suggestions.map((sug, idx) => (
                         <li key={idx} className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0">
@@ -93,8 +100,9 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
                             </div>
                             <button 
                               type="button" 
-                              onClick={() => handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster)} 
+                              onClick={() => handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting)} 
                               className="text-blue-600 hover:text-blue-800 text-sm"
+                              disabled={isSelecting}
                             >
                               Actualizar
                             </button>
@@ -103,7 +111,7 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
                       ))}
                     </ul>
                   )}
-                  {searchLoading && (
+                  {searchLoading && !isSelecting && (
                     <div className="absolute right-2 top-2">
                       <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
@@ -155,6 +163,3 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
     </Transition.Root>
   );
 }
-
-// ← IMPORTAR getGenreName
-import { getGenreName } from "cine-amigos/src/hooks/useMovieSearch";
