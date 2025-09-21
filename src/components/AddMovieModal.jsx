@@ -1,7 +1,6 @@
 import { Fragment, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { useMovieSearch } from "cine-amigos/src/hooks/useMovieSearch";
-import { getGenreName } from "cine-amigos/src/hooks/useMovieSearch";
+import { useMovieSearch, getGenreName } from "cine-amigos/src/hooks/useMovieSearch";
 
 export default function AddMovieModal({ open, setOpen, addMovie }) {
   const [titulo, setTitulo] = useState("");
@@ -9,9 +8,8 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
   const [anio, setAnio] = useState("");
   const [poster, setPoster] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false); // ← NUEVO ESTADO
+  const [isSelecting, setIsSelecting] = useState(false);
 
-  // ← PASAR isSelecting al hook
   const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting);
 
   async function handleSubmit(e) {
@@ -22,7 +20,7 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
     setLoading(false);
     if (ok) {
       setTitulo(""); setGenero(""); setAnio(""); setPoster("");
-      setIsSelecting(false); // ← RESET
+      setIsSelecting(false);
       setOpen(false);
     } else {
       alert("Error al agregar la película");
@@ -46,14 +44,13 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                     value={titulo} 
                     onChange={e => {
                       setTitulo(e.target.value);
-                      setIsSelecting(false); // ← RESET cuando el usuario tipea manualmente
+                      setIsSelecting(false);
                     }} 
                     placeholder="Título (se autocompletará)" 
                     className="w-full border p-2 rounded" 
                     required 
                   />
-                  {/* Dropdown de sugerencias */}
-                  {suggestions.length > 0 && !isSelecting && ( // ← OCULTAR CUANDO isSelecting
+                  {suggestions.length > 0 && !isSelecting && (
                     <ul className="absolute z-50 w-full bg-white border mt-1 rounded-md shadow-lg max-h-48 overflow-auto">
                       {suggestions.map((sug, idx) => (
                         <li key={idx} className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0">
@@ -91,7 +88,7 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                       ))}
                     </ul>
                   )}
-                  {searchLoading && !isSelecting && ( // ← OCULTAR SPINNER CUANDO isSelecting
+                  {searchLoading && !isSelecting && (
                     <div className="absolute right-2 top-2">
                       <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
