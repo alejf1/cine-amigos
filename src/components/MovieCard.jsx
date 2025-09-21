@@ -15,38 +15,33 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
       ? "ring-2 ring-yellow-100"
       : "bg-white";
 
-// Función para actualizar rating (solo si vio la película)
-const handleRating = async (rating) => {
-  // 1. Validación: solo permitir calificar si vio la película
-  if (vistaUsuario !== "vista") {
-    // Opción A: Mostrar mensaje y no hacer nada
-    alert("¡Primero tenés que marcar que viste la película para poder calificarla! 😊");
-    return;
-    
-    // Opción B: Auto-marcar como vista (descomenta si querés esta funcionalidad)
-    // await toggleView(movie.id, currentUser.id, "vista");
-    // // Continuar con la calificación después de marcar como vista
-  }
-  
-  // 2. Si ya tiene calificación, confirmar el cambio
-  if (userRating && userRating !== rating) {
-    const mensaje = `Ya calificaste esta película con ${userRating} estrella${userRating !== 1 ? 's' : ''}. ` +
-                   `¿Querés cambiarla a ${rating} estrella${rating !== 1 ? 's' : ''}?`;
-    
-    if (!confirm(mensaje)) {
-      return; // Usuario canceló el cambio
+  // Función para actualizar rating (solo si vio la película)
+  const handleRating = async (rating) => {
+    // 1. Validación: solo permitir calificar si vio la película
+    if (vistaUsuario !== "vista") {
+      alert("¡Primero tenés que marcar que viste la película para poder calificarla! 😊");
+      return;
     }
-  }
-  
-  // 3. Actualizar la calificación
-  try {
-    await updateRating(movie.id, currentUser.id, rating);
-    console.log(`¡Película calificada con ${rating} estrella${rating !== 1 ? 's' : ''}! ⭐`);
-  } catch (error) {
-    console.error('Error al guardar la calificación:', error);
-    alert('Hubo un error al guardar tu calificación. Intentá de nuevo.');
-  }
-};
+    
+    // 2. Si ya tiene calificación, confirmar el cambio
+    if (userRating && userRating !== rating) {
+      const mensaje = `Ya calificaste esta película con ${userRating} estrella${userRating !== 1 ? 's' : ''}. ` +
+                     `¿Querés cambiarla a ${rating} estrella${rating !== 1 ? 's' : ''}?`;
+      
+      if (!confirm(mensaje)) {
+        return; // Usuario canceló el cambio
+      }
+    }
+    
+    // 3. Actualizar la calificación
+    try {
+      await updateRating(movie.id, currentUser.id, rating);
+      console.log(`¡Película calificada con ${rating} estrella${rating !== 1 ? 's' : ''}! ⭐`);
+    } catch (error) {
+      console.error('Error al guardar la calificación:', error);
+      alert('Hubo un error al guardar tu calificación. Intentá de nuevo.');
+    }
+  };
 
   return (
     <motion.div
@@ -105,65 +100,76 @@ const handleRating = async (rating) => {
         </div>
 
         <div className="mt-2 space-y-2">
-{/* SEGUNDA FILA: Estrellas con feedback visual */}
-<div className="flex justify-center items-center pb-1">
-  <div className="flex items-center gap-1">
-    {[1, 2, 3, 4, 5].map((star) => {
-      // Determinar estado de la estrella
-      const isDisabled = vistaUsuario !== "vista"; // Deshabilitada si no vio la película
-      const isSelected = userRating >= star; // Seleccionada si está en el rating actual
-      
-      return (
-        <button
-          key={star}
-          onClick={() => handleRating(star)}
-          disabled={isDisabled}
-          className={`
-            p-1 rounded transition-all duration-200 flex items-center justify-center
-            ${
-              isDisabled
-                ? "text-gray-300 cursor-not-allowed opacity-50" // Muy gris y semi-transparente
-                : isSelected
-                  ? "text-yellow-400 hover:text-yellow-500 cursor-pointer" // Amarillo brillante
-                  : "text-gray-400 hover:text-yellow-400 cursor-pointer" // Gris con hover amarillo
-            }
-          `}
-          title={
-            isDisabled
-              ? "Marcá 'Vi' primero para poder calificar"
-              : `Calificar con ${star} estrella${star !== 1 ? 's' : ''}`
-          }
-        >
-          <StarIcon
-            className={`
-              w-4 h-4 transition-all duration-200
-              ${
-                isDisabled
-                  ? "stroke-gray-300 opacity-50" // Muy tenue si está deshabilitada
-                  : isSelected
-                    ? "fill-current stroke-yellow-400 shadow-sm" // Rellena con sombra sutil
-                    : "stroke-gray-400" // Solo borde
-              }
-            `}
-          />
-        </button>
-      );
-    })}
-    
-    {/* Solo mostrar el número si hay calificación */}
-    {userRating > 0 && (
-      <span className="text-xs text-gray-600 font-medium ml-1">
-        ({userRating})
-      </span>
-    )}
-  </div>
-</div>
+          {/* PRIMERA FILA: Botones de acción si es dueño */}
+          <div className="flex justify-center items-center gap-2">
+            {isOwner ? (
+              <>
+                <button
+                  onClick={() => onEdit(movie)}
+                  className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm px-2 py-1 rounded hover:bg-blue-50"
+                  title="Editar película"
+                >
+                  <PencilIcon className="w-4 h-4" /> Editar
+                </button>
+                <button
+                  onClick={() => onDelete(movie.id)}
+                  className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm px-2 py-1 rounded hover:bg-red-50"
+                  title="Eliminar película"
+                >
+                  <TrashIcon className="w-4 h-4" /> Eliminar
+                </button>
+              </>
+            ) : null}
+          </div>
+
+          {/* SEGUNDA FILA: Estrellas con feedback visual */}
+          <div className="flex justify-center items-center pb-1">
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => handleRating(star)}
+                  disabled={vistaUsuario !== "vista"}
+                  className={`
+                    p-1 rounded transition-all duration-200 flex items-center justify-center
+                    ${
+                      vistaUsuario !== "vista"
+                        ? "text-gray-300 cursor-not-allowed opacity-50"
+                        : userRating >= star
+                          ? "text-yellow-400 hover:text-yellow-500 cursor-pointer shadow-sm"
+                          : "text-gray-400 hover:text-yellow-400 cursor-pointer"
+                    }
+                  `}
+                  title={
+                    vistaUsuario !== "vista"
+                      ? "Solo podés calificar películas que viste"
+                      : `Calificar con ${star} estrella${star !== 1 ? 's' : ''}`
+                  }
+                >
+                  <StarIcon
+                    className={`
+                      w-4 h-4 transition-all duration-200
+                      ${
+                        vistaUsuario !== "vista"
+                          ? "stroke-gray-300 opacity-50"
+                          : userRating >= star
+                            ? "fill-current stroke-yellow-400"
+                            : "stroke-gray-400"
+                      }
+                    `}
+                  />
+                </button>
+              ))}
+              
+              {userRating > 0 && (
+                <span className="text-xs text-gray-600 font-medium ml-1">
+                  ({userRating})
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>
   );
 }
-
-
-
-
