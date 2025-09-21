@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
 
-export function useMovieSearch(titulo) {
+export function useMovieSearch(titulo, isSelecting = false) { // ← AGREGAR isSelecting
   const [suggestions, setSuggestions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
-    if (!titulo || titulo.length < 3) {
-      setSuggestions([]);
+    // ← SOLUCIÓN: Solo buscar si NO está seleccionando
+    if (!titulo || titulo.length < 3 || isSelecting) {
+      if (!isSelecting) setSuggestions([]); // Solo limpiar si no está seleccionando
       return;
     }
 
     const searchMovies = async () => {
       setSearchLoading(true);
       try {
-        // ← VITE: usar import.meta.env.VITE_TMDB_API_KEY
         const apiKey = import.meta.env.VITE_TMDB_API_KEY;
         
         if (!apiKey) {
@@ -22,7 +22,6 @@ export function useMovieSearch(titulo) {
           return;
         }
 
-        // ← BÚSQUEDA BILINGÜE: Dos requests paralelas
         const [esResponse, enResponse] = await Promise.all([
           fetch(
             `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(titulo)}&language=es-ES&include_adult=false`
@@ -37,7 +36,6 @@ export function useMovieSearch(titulo) {
           enResponse.json()
         ]);
 
-        // Combinar resultados: primero español, luego inglés (sin duplicados)
         const combined = [
           ...(esData.results || []),
           ...enData.results.filter(enMovie => 
@@ -45,7 +43,7 @@ export function useMovieSearch(titulo) {
               esMovie.title.toLowerCase() === enMovie.title.toLowerCase()
             )
           )
-        ].slice(0, 5); // Top 5 total
+        ].slice(0, 5);
 
         setSuggestions(combined);
       } catch (error) {
@@ -55,20 +53,28 @@ export function useMovieSearch(titulo) {
       setSearchLoading(false);
     };
 
-    const timeoutId = setTimeout(searchMovies, 300); // Debounce
+    const timeoutId = setTimeout(searchMovies, 300);
     return () => clearTimeout(timeoutId);
-  }, [titulo]);
+  }, [titulo, isSelecting]); // ← AGREGAR isSelecting a las dependencias
 
-  const handleSuggestionSelect = (suggestion, setTitulo, setGenero, setAnio, setPoster) => {
+  const handleSuggestionSelect = (suggestion, setTitulo, setGenero, setAnio, setPoster, setIsSelecting) => {
     // Detectar idioma y ajustar título
     const isSpanish = suggestion.original_title?.toLowerCase() !== suggestion.title?.toLowerCase();
     const displayTitle = isSpanish ? suggestion.title : suggestion.original_title || suggestion.title;
     
+    // ← PAUSAR BÚSQUEDA MIENTRAS SE SELECCIONA
+    setIsSelecting(true);
+    
     setTitulo(displayTitle);
     setGenero(suggestion.genre_ids?.map(getGenreName).join(', ') || '');
     setAnio(suggestion.release_date ? suggestion.release_date.split('-')[0] : '');
-    setPoster(suggestion.poster_path ? `https://image.tmdb.org/t/p/w500${suggestion.poster_path}` : '');
-    setSuggestions([]);
+    setPoster(suggestion.poster_path ? `https://image.tmd b.org/t/p/w500${suggestion.poster_path}` : '');
+    
+    // ← REANUDAR BÚSQUEDA DESPUÉS DE UN BREVE DELAY
+    setTimeout(() => {
+      setIsSelecting(false);
+      setSuggestions([]); // Asegurar que se limpien las sugerencias
+    }, 500);
   };
 
   return {
@@ -78,7 +84,6 @@ export function useMovieSearch(titulo) {
   };
 }
 
-// Helper para géneros (expandido)
 export function getGenreName(id) {
   const genres = {
     // Español
