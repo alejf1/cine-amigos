@@ -13,13 +13,22 @@ export function useMovieSearch(titulo) {
     const searchMovies = async () => {
       setSearchLoading(true);
       try {
+        // ← VITE: usar import.meta.env.VITE_TMDB_API_KEY
+        const apiKey = import.meta.env.VITE_TMDB_API_KEY;
+        
+        if (!apiKey) {
+          console.error('❌ TMDB API Key no configurada. Revisa tu .env');
+          setSearchLoading(false);
+          return;
+        }
+
         // ← BÚSQUEDA BILINGÜE: Dos requests paralelas
         const [esResponse, enResponse] = await Promise.all([
           fetch(
-            `https://api.themoviedb.org/3/search/movie?api_key=${process.env.REACT_APP_TMDB_API_KEY}&query=${encodeURIComponent(titulo)}&language=es-ES&include_adult=false`
+            `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(titulo)}&language=es-ES&include_adult=false`
           ),
           fetch(
-            `https://api.themoviedb.org/3/search/movie?api_key=${process.env.REACT_APP_TMDB_API_KEY}&query=${encodeURIComponent(titulo)}&language=en-US&include_adult=false`
+            `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(titulo)}&language=en-US&include_adult=false`
           )
         ]);
 
@@ -70,7 +79,7 @@ export function useMovieSearch(titulo) {
 }
 
 // Helper para géneros (expandido)
-function getGenreName(id) {
+export function getGenreName(id) {
   const genres = {
     // Español
     28: 'Acción', 12: 'Aventura', 16: 'Animación', 35: 'Comedia', 80: 'Crimen',
