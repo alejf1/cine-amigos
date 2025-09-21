@@ -1,13 +1,19 @@
 import { motion } from "framer-motion";
-import { TrashIcon, EyeIcon, EyeSlashIcon, PencilIcon } from "@heroicons/react/24/outline";
+import { TrashIcon, EyeIcon, EyeSlashIcon, PencilIcon, StarIcon } from "@heroicons/react/24/outline";
 
-export default function MovieCard({ movie, currentUser, toggleView, onDelete, onEdit }) {
+export default function MovieCard({ movie, currentUser, toggleView, onDelete, onEdit, updateRating }) {
   const vistasCount = (movie.vistas || []).filter(v => v.estado === "vista").length;
   const vistaUsuario = movie.vistas?.find(v => v.usuario_id === currentUser?.id)?.estado;
+  const userRating = movie.ratings?.find(r => r.usuario_id === currentUser?.id)?.rating;
   const isOwner = movie.agregado_por === currentUser?.id;
 
   // estilos visuales: si lo viste -> highlight verde; si nadie lo vio -> borde llamativo
   const cardBg = vistaUsuario === "vista" ? "ring-2 ring-green-200" : (vistasCount === 0 ? "ring-2 ring-yellow-100" : "bg-white");
+
+  // Función para actualizar rating
+  const handleRating = (rating) => {
+    updateRating(movie.id, currentUser.id, rating);
+  };
 
   return (
     <motion.div
@@ -77,9 +83,29 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
               </button>
             </div>
           ) : (
-            <div className="text-xs text-gray-400">Añadida por {movie.agregado_por_name || "alguien"}</div>
+            <div className="w-0 flex-1" /> // Spacer para centrar las estrellas
           )}
-          <div className="text-xs text-gray-400">{vistasCount} vistas</div>
+          
+          {/* SISTEMA DE ESTRELLAS */}
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                onClick={() => handleRating(star)}
+                className={`text-sm transition-all duration-200 ${
+                  userRating >= star 
+                    ? "text-yellow-400 fill-current hover:text-yellow-500" 
+                    : "text-gray-300 hover:text-yellow-400"
+                }`}
+                title={`Calificar con ${star} estrella${star !== 1 ? 's' : ''}`}
+              >
+                <StarIcon className="w-4 h-4" />
+              </button>
+            ))}
+            {userRating && (
+              <span className="text-xs text-gray-500 ml-1">({userRating})</span>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
