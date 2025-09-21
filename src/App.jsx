@@ -55,6 +55,7 @@ export default function App() {
         peliculas?.map((p) => ({
           ...p,
           vistas: p.vistas || [],
+          ratings: p.ratings || [],
         })) || [];
       setUsers(usuarios || []);
       setMovies(normalized);
@@ -229,49 +230,84 @@ export default function App() {
     }
   }
 
-  async function updateRating(movieId, userId, rating) {
-    try {
-      const response = await fetch("/api/ratings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ movieId, userId, rating }),
-      });
+async function updateRating(movieId, userId, rating) {
+  try {
+    // 1. Verificar si ya existe un rating para esta película/usuario
+    const { data: existingRating, error: findError } = await supabase
+      .from('ratings')
+      .select('id')
+      .eq('pelicula_id', movieId)
+      .eq('usuario_id', userId)
+      .single();
 
-      if (response.ok) {
-        setMovies((prev) =>
-          prev.map((movie) =>
-            movie.id === movieId
-              ? {
-                  ...movie,
-                  ratings: movie.ratings?.find((r) => r.usuario_id === userId)
-                    ? movie.ratings.map((r) =>
-                        r.usuario_id === userId ? { ...r, rating } : r
-                      )
-                    : [
-                        ...(movie.ratings || []),
-                        {
-                          id: Date.now(),
-                          usuario_id: userId,
-                          rating,
-                          created_at: new Date().toISOString(),
-                        },
-                      ],
-                }
-              : movie
-          )
-        );
-      } else {
-        console.error(
-          "Error en la respuesta del servidor:",
-          response.statusText
-        );
-      }
-    } catch (error) {
-      console.error("Error updating rating:", error);
+    if (findError && findError.code !== 'PGRST116') { // PGRST116 = no rows found
+      throw findError;
     }
+
+    let result;
+    if (existingRating) {
+      // 2. Actualizar rating existente
+      const { data, error } = await supabase
+        .from('ratings')
+        .update({ 
+          rating, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', existingRating.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      result = data;
+    } else {
+      // 3. Crear nuevo rating
+      const { data, error } = await supabase
+        .from('ratings')
+        .insert({
+          pelicula_id: movieId,
+          usuario_id: userId,
+          rating: rating,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      result = data;
+    }
+
+    // 4. Actualizar el estado local (optimistic update)
+    setMovies((prev) =>
+      prev.map((movie) =>
+        movie.id === movieId
+          ? {
+              ...movie,
+              ratings: movie.ratings?.find((r) => r.usuario_id === userId)
+                ? movie.ratings.map((r) =>
+                    r.usuario_id === userId ? { ...r, rating } : r
+                  )
+                : [
+                    ...(movie.ratings || []),
+                    {
+                      id: result.id || Date.now(), // Usar el ID real de Supabase si existe
+                      usuario_id: userId,
+                      rating,
+                      created_at: new Date().toISOString(),
+                    },
+                  ],
+            }
+          : movie
+      )
+    );
+
+    console.log('Rating actualizado correctamente:', result);
+  } catch (error) {
+    console.error('Error updating rating:', error);
+    // Si falla, recargar datos para revertir el cambio
+    fetchAll();
+    alert('Error al guardar la calificación. Inténtalo de nuevo.');
   }
+}
 
   return (
     <div className="min-h-screen bg-gray-50">
