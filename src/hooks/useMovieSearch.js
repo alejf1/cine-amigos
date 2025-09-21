@@ -86,16 +86,26 @@ export function useMovieSearch(titulo, isSelecting = false) {
 
 export function getGenreName(id) {
   const genres = {
-    // Español
-    28: 'Acción', 12: 'Aventura', 16: 'Animación', 35: 'Comedia', 80: 'Crimen',
-    99: 'Documental', 18: 'Drama', 10751: 'Familia', 14: 'Fantasía', 36: 'Historia',
-    27: 'Terror', 10402: 'Música', 9648: 'Misterio', 10749: 'Romance', 878: 'Ciencia Ficción',
-    10770: 'TV Movie', 53: 'Thriller', 10752: 'Guerra', 37: 'Western',
-    // Inglés (fallback)
-    28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
-    99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
-    27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
-    10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western'
+    28: 'Acción / Action',
+    12: 'Aventura / Adventure',
+    16: 'Animación / Animation',
+    35: 'Comedia / Comedy',
+    80: 'Crimen / Crime',
+    99: 'Documental / Documentary',
+    18: 'Drama',
+    10751: 'Familia / Family',
+    14: 'Fantasía / Fantasy',
+    36: 'Historia / History',
+    27: 'Terror / Horror',
+    10402: 'Música / Music',
+    9648: 'Misterio / Mystery',
+    10749: 'Romance',
+    878: 'Ciencia Ficción / Science Fiction',
+    10770: 'Película de TV / TV Movie',
+    53: 'Suspenso / Thriller',
+    10752: 'Guerra / War',
+    37: 'Western'
   };
   return genres[id] || 'Desconocido';
 }
+
