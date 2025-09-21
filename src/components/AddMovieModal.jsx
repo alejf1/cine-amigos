@@ -79,8 +79,7 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                             <button 
                               type="button" 
                               onClick={() => handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting)} 
-                              className="text-blue-600 hover:text-blue-800 text-sm"
-                              disabled={isSelecting}
+                              className="text-blue-600 hover:text-blue-800 text-sm"                              
                             >
                               Usar
                             </button>
@@ -130,6 +129,7 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
     </Transition.Root>
   );
 }
+
 
 
 
