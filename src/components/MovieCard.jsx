@@ -87,33 +87,35 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
           )}
           
           {/* SISTEMA DE ESTRELLAS */}
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                onClick={() => handleRating(star)}
-                className={`text-sm transition-all duration-200 ${
-                  userRating >= star 
-                    ? "text-yellow-400 fill-current hover:text-yellow-500" 
-                    : "text-gray-300 hover:text-yellow-400"
-                }`}
-                title={`Calificar con ${star} estrella${star !== 1 ? 's' : ''}`}
-              >
-                <StarIcon 
-                  className={`w-4 h-4 ${
-                    userRating >= star 
-                      ? "fill-current"  // ← Esto rellena la estrella
-                      : ""
-                  }`}
-              </button>
-            ))}
-            {userRating && (
-              <span className="text-xs text-gray-500 ml-1">({userRating})</span>
-            )}
-          </div>
+<div className="flex items-center gap-1">
+  {[1, 2, 3, 4, 5].map((star) => (
+    <button
+      key={star}
+      onClick={() => handleRating(star)}
+      className={`p-1 rounded transition-all duration-200 ${
+        userRating >= star 
+          ? "text-yellow-400 hover:text-yellow-500" 
+          : "text-gray-300 hover:text-yellow-400"
+      }`}
+      title={`Calificar con ${star} estrella${star !== 1 ? 's' : ''}`}
+    >
+      <StarIcon 
+        className={`w-4 h-4 ${
+          userRating >= star 
+            ? "fill-current"  // ← Esto rellena la estrella
+            : ""
+        }`} 
+      />
+    </button>
+  ))}
+  {userRating && (
+    <span className="text-xs text-gray-500 ml-1">({userRating})</span>
+  )}
+</div>
         </div>
       </div>
     </motion.div>
   );
 }
+
 
