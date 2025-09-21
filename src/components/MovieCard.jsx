@@ -105,14 +105,13 @@ const handleRating = async (rating) => {
         </div>
 
         <div className="mt-2 space-y-2">
-{/* SEGUNDA FILA: Estrellas con estado según si vio la película */}
+{/* SEGUNDA FILA: Estrellas con feedback visual */}
 <div className="flex justify-center items-center pb-1">
   <div className="flex items-center gap-1">
     {[1, 2, 3, 4, 5].map((star) => {
       // Determinar estado de la estrella
       const isDisabled = vistaUsuario !== "vista"; // Deshabilitada si no vio la película
       const isSelected = userRating >= star; // Seleccionada si está en el rating actual
-      const showHover = !isDisabled && !userRating; // Hover solo si no hay calificación previa
       
       return (
         <button
@@ -123,49 +122,38 @@ const handleRating = async (rating) => {
             p-1 rounded transition-all duration-200 flex items-center justify-center
             ${
               isDisabled
-                ? "text-gray-300 cursor-not-allowed" // Gris y sin cursor
+                ? "text-gray-300 cursor-not-allowed opacity-50" // Muy gris y semi-transparente
                 : isSelected
-                  ? "text-yellow-400 hover:text-yellow-500 cursor-pointer" // Amarillo seleccionado
-                  : showHover
-                    ? "text-gray-400 hover:text-yellow-400 cursor-pointer" // Gris con hover
-                    : "text-gray-400 cursor-pointer" // Gris sin hover (ya calificado)
+                  ? "text-yellow-400 hover:text-yellow-500 cursor-pointer" // Amarillo brillante
+                  : "text-gray-400 hover:text-yellow-400 cursor-pointer" // Gris con hover amarillo
             }
           `}
           title={
             isDisabled
               ? "Marcá 'Vi' primero para poder calificar"
-              : isSelected
-                ? `Ya calificaste con ${star} estrella${star !== 1 ? 's' : ''}`
-                : `Calificar con ${star} estrella${star !== 1 ? 's' : ''}`
+              : `Calificar con ${star} estrella${star !== 1 ? 's' : ''}`
           }
         >
           <StarIcon
             className={`
-              w-4 h-4 transition-colors duration-200
+              w-4 h-4 transition-all duration-200
               ${
                 isDisabled
-                  ? "stroke-gray-300" // Sin relleno si está deshabilitada
+                  ? "stroke-gray-300 opacity-50" // Muy tenue si está deshabilitada
                   : isSelected
-                    ? "fill-current stroke-yellow-400" // Rellena si está seleccionada
-                    : "stroke-gray-400" // Solo borde si no está seleccionada
+                    ? "fill-current stroke-yellow-400 shadow-sm" // Rellena con sombra sutil
+                    : "stroke-gray-400" // Solo borde
               }
             `}
           />
         </button>
       );
     })}
-   
-    {/* Mostrar calificación actual */}
+    
+    {/* Solo mostrar el número si hay calificación */}
     {userRating > 0 && (
-      <span className="text-xs text-gray-600 font-medium ml-2">
+      <span className="text-xs text-gray-600 font-medium ml-1">
         ({userRating})
-      </span>
-    )}
-   
-    {/* Hint si no puede calificar */}
-    {vistaUsuario !== "vista" && !userRating && (
-      <span className="text-xs text-gray-400 ml-2 italic">
-        (Marcá "Vi" primero)
       </span>
     )}
   </div>
@@ -175,6 +163,7 @@ const handleRating = async (rating) => {
     </motion.div>
   );
 }
+
 
 
 
