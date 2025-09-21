@@ -48,7 +48,8 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                     }} 
                     placeholder="Título (se autocompletará)" 
                     className="w-full border p-2 rounded" 
-                    required 
+                    required
+                    readOnly={isSelecting} 
                   />
                   {suggestions.length > 0 && !isSelecting && (
                     <ul className="absolute z-50 w-full bg-white border mt-1 rounded-md shadow-lg max-h-48 overflow-auto">
@@ -129,5 +130,6 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
     </Transition.Root>
   );
 }
+
 
 
