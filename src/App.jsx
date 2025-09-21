@@ -267,3 +267,40 @@ export default function App() {
     </div>
   );
 }
+
+// Función para actualizar rating
+const updateRating = async (movieId, userId, rating) => {
+  try {
+    const response = await fetch('/api/ratings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ movieId, userId, rating })
+    });
+
+    if (response.ok) {
+      // Actualizar estado local optimistamente
+      setMovies(prev => prev.map(movie => 
+        movie.id === movieId 
+          ? {
+              ...movie,
+              ratings: movie.ratings?.find(r => r.usuario_id === userId)
+                ? movie.ratings.map(r => r.usuario_id === userId ? { ...r, rating } : r)
+                : [...(movie.ratings || []), { usuario_id: userId, rating }]
+            }
+          : movie
+      ));
+    }
+  } catch (error) {
+    console.error('Error updating rating:', error);
+  }
+};
+
+// Al renderizar MovieGrid:
+<MovieGrid
+  movies={movies}
+  currentUser={currentUser}
+  toggleView={toggleView}
+  onDelete={onDelete}
+  onEdit={onEdit}
+  updateRating={updateRating} // ← PASAR LA FUNCIÓN
+/>
