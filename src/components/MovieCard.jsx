@@ -15,10 +15,38 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
       ? "ring-2 ring-yellow-100"
       : "bg-white";
 
-  // Función para actualizar rating
-  const handleRating = (rating) => {
-    updateRating(movie.id, currentUser.id, rating);
-  };
+// Función para actualizar rating (solo si vio la película)
+const handleRating = async (rating) => {
+  // 1. Validación: solo permitir calificar si vio la película
+  if (vistaUsuario !== "vista") {
+    // Opción A: Mostrar mensaje y no hacer nada
+    alert("¡Primero tenés que marcar que viste la película para poder calificarla! 😊");
+    return;
+    
+    // Opción B: Auto-marcar como vista (descomenta si querés esta funcionalidad)
+    // await toggleView(movie.id, currentUser.id, "vista");
+    // // Continuar con la calificación después de marcar como vista
+  }
+  
+  // 2. Si ya tiene calificación, confirmar el cambio
+  if (userRating && userRating !== rating) {
+    const mensaje = `Ya calificaste esta película con ${userRating} estrella${userRating !== 1 ? 's' : ''}. ` +
+                   `¿Querés cambiarla a ${rating} estrella${rating !== 1 ? 's' : ''}?`;
+    
+    if (!confirm(mensaje)) {
+      return; // Usuario canceló el cambio
+    }
+  }
+  
+  // 3. Actualizar la calificación
+  try {
+    await updateRating(movie.id, currentUser.id, rating);
+    console.log(`¡Película calificada con ${rating} estrella${rating !== 1 ? 's' : ''}! ⭐`);
+  } catch (error) {
+    console.error('Error al guardar la calificación:', error);
+    alert('Hubo un error al guardar tu calificación. Intentá de nuevo.');
+  }
+};
 
   return (
     <motion.div
@@ -126,4 +154,5 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
     </motion.div>
   );
 }
+
 
