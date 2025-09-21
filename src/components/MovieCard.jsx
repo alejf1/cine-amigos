@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { TrashIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { TrashIcon, EyeIcon, EyeSlashIcon, PencilIcon } from "@heroicons/react/24/outline";
 
-export default function MovieCard({ movie, currentUser, toggleView, onDelete }) {
+export default function MovieCard({ movie, currentUser, toggleView, onDelete, onEdit }) {
   const vistasCount = (movie.vistas || []).filter(v => v.estado === "vista").length;
   const vistaUsuario = movie.vistas?.find(v => v.usuario_id === currentUser?.id)?.estado;
   const isOwner = movie.agregado_por === currentUser?.id;
@@ -36,7 +36,7 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete }) 
           </div>
 
           <div className="text-xs text-gray-400">
-            <div>{vistasCount}/{/* total usuarios unknown here, we could show total users count via prop */} vistos</div>
+            <div>{vistasCount} vistos</div>
           </div>
         </div>
 
@@ -60,13 +60,22 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete }) 
 
         <div className="mt-2 flex justify-between items-center">
           {isOwner ? (
-            <button
-              onClick={() => onDelete(movie.id)}
-              className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
-              title="Eliminar película"
-            >
-              <TrashIcon className="w-4 h-4" /> Eliminar
-            </button>
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={() => onEdit(movie)}
+                className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
+                title="Editar película"
+              >
+                <PencilIcon className="w-4 h-4" /> Editar
+              </button>
+              <button
+                onClick={() => onDelete(movie.id)}
+                className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
+                title="Eliminar película"
+              >
+                <TrashIcon className="w-4 h-4" /> Eliminar
+              </button>
+            </div>
           ) : (
             <div className="text-xs text-gray-400">Añadida por {movie.agregado_por_name || "alguien"}</div>
           )}
