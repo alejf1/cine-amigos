@@ -23,48 +23,62 @@ export default function App() {
   async function fetchAll() {
     try {
       // 1. Obtener usuario autenticado de Supabase Auth
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('Usuario de auth:', user?.id); // Para debug
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      console.log("Usuario de auth:", user?.id); // Para debug
+
       // 2. Obtener todos los usuarios de la tabla usuarios
-      const { data: usuarios } = await supabase.from("usuarios").select("*").order("nombre");
-      console.log('Usuarios de DB:', usuarios?.map(u => ({ id: u.id, nombre: u.nombre })));
-      
+      const { data: usuarios } = await supabase
+        .from("usuarios")
+        .select("*")
+        .order("nombre");
+      console.log(
+        "Usuarios de DB:",
+        usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
+      );
+
       // 3. Obtener películas con vistas
 
       const { data: peliculas } = await supabase
         .from("peliculas")
-        .select(`
+        .select(
+          `
           *,
           vistas(*),
           ratings (
             *,
             usuarios (nombre)
           )
-        `)
+        `
+        )
         .order("titulo");
-      
-// 4. Normalizar películas
-      const normalized = peliculas?.map(p => ({
-        ...p,
-        vistas: p.vistas || []
-      })) || [];
+
+      // 4. Normalizar películas
+      const normalized =
+        peliculas?.map((p) => ({
+          ...p,
+          vistas: p.vistas || [],
+        })) || [];
       setUsers(usuarios || []);
       setMovies(normalized);
-      
+
       // 5. Establecer usuario actual: buscar el usuario autenticado en la tabla usuarios
       if (user && usuarios) {
-        const authUser = usuarios.find(u => u.id === user.id);
-        console.log('Usuario autenticado encontrado:', authUser?.nombre, authUser?.id);
+        const authUser = usuarios.find((u) => u.id === user.id);
+        console.log(
+          "Usuario autenticado encontrado:",
+          authUser?.nombre,
+          authUser?.id
+        );
         setCurrentUser(authUser || usuarios[0] || null);
       } else {
         setCurrentUser(usuarios?.[0] || null);
       }
-      console.log('Usuario actual final:', currentUser?.id);
-      console.log('Películas cargadas:', normalized.length);
-      
+      console.log("Usuario actual final:", currentUser?.id);
+      console.log("Películas cargadas:", normalized.length);
     } catch (error) {
-      console.error('Error en fetchAll:', error);
+      console.error("Error en fetchAll:", error);
     }
   }
 
@@ -77,110 +91,122 @@ export default function App() {
         .insert([insert])
         .select("*, vistas(*)");
       if (!error && data?.[0]) {
-        setMovies(prev => [...prev, { ...data[0], vistas: data[0].vistas || [] }]);
+        setMovies((prev) => [
+          ...prev,
+          { ...data[0], vistas: data[0].vistas || [] },
+        ]);
         return true;
       }
-      console.error('Error al agregar película:', error);
+      console.error("Error al agregar película:", error);
       return false;
     } catch (error) {
-      console.error('Error en addMovie:', error);
+      console.error("Error en addMovie:", error);
       return false;
     }
   }
 
   async function toggleView(movieId, userId, estado) {
-    console.log('toggleView llamado:', { movieId, userId, estado, currentUserId: currentUser?.id });
-    
+    console.log("toggleView llamado:", {
+      movieId,
+      userId,
+      estado,
+      currentUserId: currentUser?.id,
+    });
+
     // Verificar que tengamos IDs válidos
     if (!movieId || !userId) {
-      console.error('IDs faltantes:', { movieId, userId });
-      alert('Error: IDs faltantes');
+      console.error("IDs faltantes:", { movieId, userId });
+      alert("Error: IDs faltantes");
       return;
     }
-    
+
     try {
       // 1. Optimistic update (actualizar UI inmediatamente)
-      setMovies(prev => prev.map(m => {
-        if (m.id !== movieId) return m;
-        
-        // Buscar vista existente
-        const vistaExistente = (m.vistas || []).find(v => v.usuario_id === userId);
-        let vistasActualizadas;
-        
-        if (vistaExistente) {
-          // Actualizar entrada existente (sin created_at)
-          vistasActualizadas = m.vistas.map(v =>
-            v.usuario_id === userId
-              ? { ...v, estado }
-              : v
+      setMovies((prev) =>
+        prev.map((m) => {
+          if (m.id !== movieId) return m;
+
+          // Buscar vista existente
+          const vistaExistente = (m.vistas || []).find(
+            (v) => v.usuario_id === userId
           );
-        } else {
-          // Crear nueva entrada (sin created_at)
-          vistasActualizadas = [
-            ...(m.vistas || []),
-            {
-              usuario_id: userId,
-              estado,
-              pelicula_id: movieId
-            }
-          ];
-        }
-        
-        return { ...m, vistas: vistasActualizadas };
-      }));
+          let vistasActualizadas;
+
+          if (vistaExistente) {
+            // Actualizar entrada existente (sin created_at)
+            vistasActualizadas = m.vistas.map((v) =>
+              v.usuario_id === userId ? { ...v, estado } : v
+            );
+          } else {
+            // Crear nueva entrada (sin created_at)
+            vistasActualizadas = [
+              ...(m.vistas || []),
+              {
+                usuario_id: userId,
+                estado,
+                pelicula_id: movieId,
+              },
+            ];
+          }
+
+          return { ...m, vistas: vistasActualizadas };
+        })
+      );
       // 2. Actualizar en Supabase - SOLO con campos que existen
-      const { error } = await supabase
-        .from("vistas")
-        .upsert(
-          [{
+      const { error } = await supabase.from("vistas").upsert(
+        [
+          {
             usuario_id: userId,
             pelicula_id: movieId,
-            estado
+            estado,
             // NO incluir created_at ni updated_at porque no existen
-          }],
-          {
-            onConflict: "usuario_id,pelicula_id"
-          }
-        );
+          },
+        ],
+        {
+          onConflict: "usuario_id,pelicula_id",
+        }
+      );
       if (error) {
-        console.error('Error en Supabase upsert:', error);
+        console.error("Error en Supabase upsert:", error);
         throw error;
       }
-      console.log('Vista actualizada correctamente en DB');
-      
+      console.log("Vista actualizada correctamente en DB");
     } catch (error) {
-      console.error('Error en toggleView:', error);
-      
+      console.error("Error en toggleView:", error);
+
       // Revertir optimistic update
       fetchAll();
-      
+
       // Mostrar error al usuario
-      alert('Error al actualizar el estado. Inténtalo de nuevo.');
+      alert("Error al actualizar el estado. Inténtalo de nuevo.");
     }
   }
 
   async function deleteMovie(movieId) {
     try {
       // Verificar permisos
-      const pelicula = movies.find(m => m.id === movieId);
+      const pelicula = movies.find((m) => m.id === movieId);
       if (!pelicula) return;
       if (pelicula.agregado_por !== currentUser.id) {
         alert("Solo quien agregó la película puede eliminarla.");
         return;
       }
       // Eliminar película (esto eliminará automáticamente las vistas si tienes ON DELETE CASCADE)
-      const { error } = await supabase.from("peliculas").delete().eq("id", movieId);
-      
+      const { error } = await supabase
+        .from("peliculas")
+        .delete()
+        .eq("id", movieId);
+
       if (!error) {
-        setMovies(prev => prev.filter(m => m.id !== movieId));
-        console.log('Película eliminada correctamente');
+        setMovies((prev) => prev.filter((m) => m.id !== movieId));
+        console.log("Película eliminada correctamente");
       } else {
-        console.error('Error al eliminar película:', error);
-        alert('Error al eliminar la película');
+        console.error("Error al eliminar película:", error);
+        alert("Error al eliminar la película");
       }
     } catch (error) {
-      console.error('Error en deleteMovie:', error);
-      alert('Error al eliminar la película');
+      console.error("Error en deleteMovie:", error);
+      alert("Error al eliminar la película");
     }
   }
 
@@ -193,7 +219,7 @@ export default function App() {
   async function updateMovie(movieId, updatedData) {
     try {
       // Verificar permisos
-      const pelicula = movies.find(m => m.id === movieId);
+      const pelicula = movies.find((m) => m.id === movieId);
       if (!pelicula || pelicula.agregado_por !== currentUser.id) {
         alert("Solo quien agregó la película puede editarla.");
         return false;
@@ -208,19 +234,21 @@ export default function App() {
 
       if (!error && data?.[0]) {
         // Actualizar el estado local
-        setMovies(prev => 
-          prev.map(movie => 
-            movie.id === movieId ? { ...data[0], vistas: data[0].vistas || [] } : movie
+        setMovies((prev) =>
+          prev.map((movie) =>
+            movie.id === movieId
+              ? { ...data[0], vistas: data[0].vistas || [] }
+              : movie
           )
         );
-        console.log('Película actualizada correctamente');
+        console.log("Película actualizada correctamente");
         return true;
       }
-      
-      console.error('Error al actualizar película:', error);
+
+      console.error("Error al actualizar película:", error);
       return false;
     } catch (error) {
-      console.error('Error en updateMovie:', error);
+      console.error("Error en updateMovie:", error);
       return false;
     }
   }
@@ -238,7 +266,9 @@ export default function App() {
           <div className="flex flex-col md:flex-row md:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold">Novedades del grupo</h1>
-              <p className="text-sm text-gray-500">Explorá las recomendaciones de los pibes.</p>
+              <p className="text-sm text-gray-500">
+                Explorá las recomendaciones de los pibes.
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <UserStats user={currentUser} movies={movies} />
@@ -265,7 +295,7 @@ export default function App() {
         </section>
       </main>
       <AddMovieModal open={openAdd} setOpen={setOpenAdd} addMovie={addMovie} />
-      
+
       {/* ← NUEVO MODAL DE EDICIÓN */}
       <EditMovieModal
         open={openEdit}
@@ -280,36 +310,43 @@ export default function App() {
 // función updateRating
 const updateRating = async (movieId, userId, rating) => {
   try {
-    const response = await fetch('/api/ratings', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
+    const response = await fetch("/api/ratings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ movieId, userId, rating })
+      body: JSON.stringify({ movieId, userId, rating }),
     });
 
     if (response.ok) {
       // Actualizar estado local optimistamente
-      setMovies(prev => prev.map(movie => 
-        movie.id === movieId 
-          ? {
-              ...movie,
-              ratings: movie.ratings?.find(r => r.usuario_id === userId)
-                ? movie.ratings.map(r => r.usuario_id === userId ? { ...r, rating } : r)
-                : [...(movie.ratings || []), { 
-                    id: Date.now(), // ID temporal para el frontend
-                    usuario_id: userId, 
-                    rating,
-                    created_at: new Date().toISOString()
-                  }]
-            }
-          : movie
-      ));
+      setMovies((prev) =>
+        prev.map((movie) =>
+          movie.id === movieId
+            ? {
+                ...movie,
+                ratings: movie.ratings?.find((r) => r.usuario_id === userId)
+                  ? movie.ratings.map((r) =>
+                      r.usuario_id === userId ? { ...r, rating } : r
+                    )
+                  : [
+                      ...(movie.ratings || []),
+                      {
+                        id: Date.now(), // ID temporal para el frontend
+                        usuario_id: userId,
+                        rating,
+                        created_at: new Date().toISOString(),
+                      },
+                    ],
+              }
+            : movie
+        )
+      );
     } else {
-      console.error('Error en la respuesta del servidor:', response.statusText);
+      console.error("Error en la respuesta del servidor:", response.statusText);
     }
   } catch (error) {
-    console.error('Error updating rating:', error);
+    console.error("Error updating rating:", error);
   }
 };
 
@@ -321,4 +358,4 @@ const updateRating = async (movieId, userId, rating) => {
   onDelete={onDelete}
   onEdit={onEdit}
   updateRating={updateRating} // ← PASAR LA FUNCIÓN
-/>
+/>;
