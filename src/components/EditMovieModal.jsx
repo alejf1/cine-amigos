@@ -157,4 +157,4 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
 }
 
 // ← IMPORTAR getGenreName
-import { getGenreName } from "../hooks/useMovieSearch";
+import { getGenreName } from "cine-amigos/src/components/hooks/useMovieSearch";
