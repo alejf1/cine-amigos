@@ -99,7 +99,12 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
                 }`}
                 title={`Calificar con ${star} estrella${star !== 1 ? 's' : ''}`}
               >
-                <StarIcon className="w-4 h-4" />
+                <StarIcon 
+                  className={`w-4 h-4 ${
+                    userRating >= star 
+                      ? "fill-current"  // ← Esto rellena la estrella
+                      : ""
+                  }`}
               </button>
             ))}
             {userRating && (
@@ -111,3 +116,4 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
     </motion.div>
   );
 }
+
