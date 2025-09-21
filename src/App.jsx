@@ -268,12 +268,14 @@ export default function App() {
   );
 }
 
-// Función para actualizar rating
+// función updateRating
 const updateRating = async (movieId, userId, rating) => {
   try {
     const response = await fetch('/api/ratings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ movieId, userId, rating })
     });
 
@@ -285,10 +287,17 @@ const updateRating = async (movieId, userId, rating) => {
               ...movie,
               ratings: movie.ratings?.find(r => r.usuario_id === userId)
                 ? movie.ratings.map(r => r.usuario_id === userId ? { ...r, rating } : r)
-                : [...(movie.ratings || []), { usuario_id: userId, rating }]
+                : [...(movie.ratings || []), { 
+                    id: Date.now(), // ID temporal para el frontend
+                    usuario_id: userId, 
+                    rating,
+                    created_at: new Date().toISOString()
+                  }]
             }
           : movie
       ));
+    } else {
+      console.error('Error en la respuesta del servidor:', response.statusText);
     }
   } catch (error) {
     console.error('Error updating rating:', error);
