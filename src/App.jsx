@@ -31,11 +31,20 @@ export default function App() {
       console.log('Usuarios de DB:', usuarios?.map(u => ({ id: u.id, nombre: u.nombre })));
       
       // 3. Obtener películas con vistas
+
       const { data: peliculas } = await supabase
         .from("peliculas")
-        .select("*, vistas(*)")
+        .select(`
+          *,
+          vistas(*),
+          ratings (
+            *,
+            usuarios (nombre)
+          )
+        `)
         .order("titulo");
-      // 4. Normalizar películas
+      
+// 4. Normalizar películas
       const normalized = peliculas?.map(p => ({
         ...p,
         vistas: p.vistas || []
