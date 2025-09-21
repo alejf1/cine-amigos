@@ -64,58 +64,65 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
           </button>
         </div>
 
-        <div className="mt-2 flex justify-between items-center">
-          {isOwner ? (
-            <div className="flex gap-2 items-center">
-              <button
-                onClick={() => onEdit(movie)}
-                className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
-                title="Editar película"
-              >
-                <PencilIcon className="w-4 h-4" /> Editar
-              </button>
-              <button
-                onClick={() => onDelete(movie.id)}
-                className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
-                title="Eliminar película"
-              >
-                <TrashIcon className="w-4 h-4" /> Eliminar
-              </button>
-            </div>
-          ) : (
-            <div className="w-0 flex-1" /> // Spacer para centrar las estrellas
-          )}
-          
-          {/* SISTEMA DE ESTRELLAS */}
-<div className="flex items-center gap-1">
-  {[1, 2, 3, 4, 5].map((star) => (
-    <button
-      key={star}
-      onClick={() => handleRating(star)}
-      className={`p-1 rounded transition-all duration-200 ${
-        userRating >= star 
-          ? "text-yellow-400 hover:text-yellow-500" 
-          : "text-gray-300 hover:text-yellow-400"
-      }`}
-      title={`Calificar con ${star} estrella${star !== 1 ? 's' : ''}`}
-    >
-      <StarIcon 
-        className={`w-4 h-4 ${
-          userRating >= star 
-            ? "fill-current"  // ← Esto rellena la estrella
-            : ""
-        }`} 
-      />
-    </button>
-  ))}
-  {userRating && (
-    <span className="text-xs text-gray-500 ml-1">({userRating})</span>
-  )}
+<div className="mt-2 space-y-2">
+  {/* PRIMERA FILA: Acciones del propietario o espacio */}
+  <div className="flex justify-between items-center">
+    {isOwner ? (
+      <div className="flex gap-2">
+        <button
+          onClick={() => onEdit(movie)}
+          className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm px-2 py-1 rounded hover:bg-blue-50"
+          title="Editar película"
+        >
+          <PencilIcon className="w-4 h-4" /> Editar
+        </button>
+        <button
+          onClick={() => onDelete(movie.id)}
+          className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm px-2 py-1 rounded hover:bg-red-50"
+          title="Eliminar película"
+        >
+          <TrashIcon className="w-4 h-4" /> Eliminar
+        </button>
+      </div>
+    ) : (
+      <div className="w-full h-6" /> // Espacio reservado
+    )}
+  </div>
+
+  {/* SEGUNDA FILA: Siempre las estrellas, centradas */}
+  <div className="flex justify-center items-center">
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          onClick={() => handleRating(star)}
+          className={`p-1 rounded transition-all duration-200 ${
+            userRating >= star 
+              ? "text-yellow-400 hover:text-yellow-500" 
+              : "text-gray-300 hover:text-yellow-400"
+          }`}
+          title={`Calificar con ${star} estrella${star !== 1 ? 's' : ''}`}
+        >
+          <StarIcon 
+            className={`w-4 h-4 ${
+              userRating >= star 
+                ? "fill-current" 
+                : ""
+            }`} 
+          />
+        </button>
+      ))}
+      {userRating && (
+        <span className="text-xs text-gray-500 ml-1">({userRating})</span>
+      )}
+    </div>
+  </div>
 </div>
         </div>
       </div>
     </motion.div>
   );
 }
+
 
 
