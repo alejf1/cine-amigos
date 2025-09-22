@@ -13,33 +13,33 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
   const [viewStatus, setViewStatus] = useState("vista"); // Por defecto "vista"
   const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting);
 
-async function handleSubmit(e) {
-  e.preventDefault();
-  if (!titulo || !genero) return alert("Título y género son obligatorios");
-  setLoading(true);
-  
-  const ok = await addMovie({ 
-    titulo, 
-    genero, 
-    anio: anio ? parseInt(anio) : null, 
-    poster,
-    // ← NUEVO: Incluir el estado de vista
-    vistaEstado: viewStatus
-  });
-  
-  setLoading(false);
-  if (ok) {
-    setTitulo(""); 
-    setGenero(""); 
-    setAnio(""); 
-    setPoster("");
-    setViewStatus("vista"); // ← RESET
-    setIsSelecting(false);
-    setOpen(false);
-  } else {
-    alert("Error al agregar la película");
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!titulo || !genero) return alert("Título y género son obligatorios");
+    setLoading(true);
+
+    const ok = await addMovie({
+      titulo,
+      genero,
+      anio: anio ? parseInt(anio) : null,
+      poster,
+      // ← NUEVO: Incluir el estado de vista
+      vistaEstado: viewStatus
+    });
+
+    setLoading(false);
+    if (ok) {
+      setTitulo("");
+      setGenero("");
+      setAnio("");
+      setPoster("");
+      setViewStatus("vista"); // ← RESET
+      setIsSelecting(false);
+      setOpen(false);
+    } else {
+      alert("Error al agregar la película");
+    }
   }
-}
 
   return (
     <Transition.Root show={open} as={Fragment}>
@@ -54,14 +54,14 @@ async function handleSubmit(e) {
               <Dialog.Title className="text-lg font-bold mb-2">Añadir película</Dialog.Title>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="relative">
-                  <input 
-                    value={titulo} 
+                  <input
+                    value={titulo}
                     onChange={e => {
                       setTitulo(e.target.value);
                       setIsSelecting(false);
-                    }} 
-                    placeholder="Título (se autocompletará)" 
-                    className="w-full border p-2 rounded" 
+                    }}
+                    placeholder="Título (se autocompletará)"
+                    className="w-full border p-2 rounded"
                     required
                   />
                   {suggestions.length > 0 && !isSelecting && (
@@ -70,10 +70,10 @@ async function handleSubmit(e) {
                         <li key={idx} className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0">
                           <div className="flex items-center gap-3">
                             {sug.poster_path ? (
-                              <img 
-                                src={`https://image.tmdb.org/t/p/w92${sug.poster_path}`} 
-                                alt={sug.title} 
-                                className="w-12 h-18 object-cover rounded" 
+                              <img
+                                src={`https://image.tmdb.org/t/p/w92${sug.poster_path}`}
+                                alt={sug.title}
+                                className="w-12 h-18 object-cover rounded"
                               />
                             ) : (
                               <div className="w-12 h-18 bg-gray-200 rounded flex items-center justify-center text-xs">No poster</div>
@@ -89,9 +89,12 @@ async function handleSubmit(e) {
                                 <span>{sug.genre_ids?.map(getGenreName).join(', ')}</span>
                               </div>
                             </div>
-                            <button 
-                              type="button" 
-                              onClick={() => handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting)} 
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting);
+                                setIsSelecting(true); // ← AGREGAR ESTA LÍNEA para cerrar la búsqueda
+                              }}
                               className="text-blue-600 hover:text-blue-800 text-sm"
                               disabled={isSelecting}
                             >
@@ -109,55 +112,53 @@ async function handleSubmit(e) {
                   )}
                 </div>
 
-                <input 
-                  value={genero} 
-                  onChange={e => setGenero(e.target.value)} 
-                  placeholder="Género (se autocompletará)" 
-                  className="w-full border p-2 rounded" 
-                  required 
+                <input
+                  value={genero}
+                  onChange={e => setGenero(e.target.value)}
+                  placeholder="Género (se autocompletará)"
+                  className="w-full border p-2 rounded"
+                  required
                 />
-                <input 
-                  value={anio} 
-                  onChange={e => setAnio(e.target.value)} 
-                  placeholder="Año (se autocompletará)" 
-                  className="w-full border p-2 rounded" 
+                <input
+                  value={anio}
+                  onChange={e => setAnio(e.target.value)}
+                  placeholder="Año (se autocompletará)"
+                  className="w-full border p-2 rounded"
                   type="number"
                 />
-                <input 
-                  value={poster} 
-                  onChange={e => setPoster(e.target.value)} 
-                  placeholder="Poster (se autocompletará)" 
-                  className="w-full border p-2 rounded" 
+                <input
+                  value={poster}
+                  onChange={e => setPoster(e.target.value)}
+                  placeholder="Poster (se autocompletará)"
+                  className="w-full border p-2 rounded"
                 />
                 <div className="space-y-3">
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    ¿Ya la viste?
-  </label>
-  <div className="flex gap-2">
-    <button
-      type="button"
-      onClick={() => setViewStatus("vista")}
-      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
-        viewStatus === "vista" 
-          ? "bg-green-600 text-white" 
-          : "bg-gray-100 hover:bg-gray-200"
-      }`}
-    >
-      <EyeIcon className="w-4 h-4" /> Sí, la vi
-    </button>
-    <button
-      type="button"
-      onClick={() => setViewStatus("no vista")}
-      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
-        viewStatus === "no vista" 
-          ? "bg-red-500 text-white" 
-          : "bg-gray-100 hover:bg-gray-200"
-      }`}
-    >
-      <EyeSlashIcon className="w-4 h-4" /> No la vi
-    </button>
-  </div>
-</div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ¿Ya la viste?
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setViewStatus("vista")}
+                      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${viewStatus === "vista"
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-100 hover:bg-gray-200"
+                        }`}
+                    >
+                      <EyeIcon className="w-4 h-4" /> Sí, la vi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewStatus("no vista")}
+                      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${viewStatus === "no vista"
+                          ? "bg-red-500 text-white"
+                          : "bg-gray-100 hover:bg-gray-200"
+                        }`}
+                    >
+                      <EyeSlashIcon className="w-4 h-4" /> No la vi
+                    </button>
+                  </div>
+                </div>
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded bg-gray-100">Cancelar</button>
                   <button type="submit" className="px-4 py-2 rounded bg-red-600 text-white" disabled={loading}>
@@ -172,10 +173,3 @@ async function handleSubmit(e) {
     </Transition.Root>
   );
 }
-
-
-
-
-
-
-
