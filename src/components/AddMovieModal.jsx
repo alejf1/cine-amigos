@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { useMovieSearch, getGenreName } from "../hooks/useMovieSearch";
 
 export default function AddMovieModal({ open, setOpen, addMovie }) {
@@ -171,6 +172,7 @@ async function handleSubmit(e) {
     </Transition.Root>
   );
 }
+
 
 
 
