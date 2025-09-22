@@ -44,3 +44,5 @@ export default function Navbar({ users, currentUser, setCurrentUser, onOpenAdd }
     </nav>
   );
 }
+
+
