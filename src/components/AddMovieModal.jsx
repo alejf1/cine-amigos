@@ -11,7 +11,7 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
   const [loading, setLoading] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [viewStatus, setViewStatus] = useState("vista"); // Por defecto "vista"
-  const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting);
+  const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting, setIsSelecting);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -172,4 +172,5 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
     </Transition.Root>
   );
 }
+
 
