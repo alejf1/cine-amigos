@@ -422,128 +422,98 @@ export default function App() {
       />
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* ← SECCIÓN DE FILTROS */}
-        <section className="mb-6">
-          <div className="bg-white p-4 rounded-xl shadow-sm">
-            <div className="flex flex-col lg:flex-row lg:items-end lg:gap-4">
-              <h2 className="text-lg font-semibold mb-3 lg:mb-0">Filtros</h2>
-              
-              {/* Contador de filtros activos */}
-              {Object.values(filters).some(v => v !== (Array.isArray(v) ? [] : false)) && (
-                <span className="text-sm text-gray-500 lg:ml-auto">
-                  {Object.values(filters).filter(v => v !== (Array.isArray(v) ? [] : false)).length} filtro activo
-                </span>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-              {/* Filtro de estado de vista */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mi estado</label>
-                <select
-                  value={filters.viewStatus}
-                  onChange={(e) => updateFilter("viewStatus", e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">Todas</option>
-                  <option value="vista">Mis vistas</option>
-                  <option value="no_vista">Mis no vistas</option>
-                </select>
-              </div>
+{/* ← SECCIÓN DE FILTROS SIMPLIFICADA */}
+<section className="mb-6">
+  <div className="bg-white p-4 rounded-xl shadow-sm">
+    <div className="flex flex-col lg:flex-row lg:items-end lg:gap-4">
+      <h2 className="text-lg font-semibold mb-3 lg:mb-0">Filtros</h2>
+      
+      {/* Contador de filtros activos */}
+      {Object.values(filters).some(v => v !== (Array.isArray(v) ? [] : false)) && (
+        <span className="text-sm text-gray-500 lg:ml-auto">
+          {Object.values(filters).filter(v => v !== (Array.isArray(v) ? [] : false)).length} filtro activo
+        </span>
+      )}
+    </div>
+    
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+      {/* Filtro de estado de vista */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Mi estado</label>
+        <select
+          value={filters.viewStatus}
+          onChange={(e) => updateFilter("viewStatus", e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">Todas</option>
+          <option value="vista">Mis vistas</option>
+          <option value="no_vista">Mis no vistas</option>
+        </select>
+      </div>
 
-              {/* Filtro de género */}
-              <div className="lg:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Géneros</label>
-                <select
-                  multiple
-                  value={filters.genres}
-                  onChange={(e) => updateFilter("genres", Array.from(e.target.selectedOptions, option => option.value))}
-                  className="w-full p-2 border border-gray-300 rounded-md text-sm h-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ height: '40px' }} // Altura fija para que no se expanda
-                >
-                  {getUniqueGenres(movies).map(genre => (
-                    <option key={genre} value={genre}>{genre}</option>
-                  ))}
-                </select>
-                {filters.genres.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">{filters.genres.length} género{filters.genres.length !== 1 ? 's' : ''} seleccionado{filters.genres.length !== 1 ? 's' : ''}</p>
-                )}
-              </div>
+      {/* Filtro de ordenamiento */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Ordenar por</label>
+        <select
+          value={sortMode}
+          onChange={(e) => setSortMode(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="default">Predeterminado</option>
+          <option value="topRated">⭐ Más valoradas</option>
+        </select>
+      </div>
 
-              {/* Filtro de año */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Desde"
-                    value={filters.yearFrom}
-                    onChange={(e) => updateFilter("yearFrom", e.target.value)}
-                    className="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="1900"
-                    max={new Date().getFullYear()}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Hasta"
-                    value={filters.yearTo}
-                    onChange={(e) => updateFilter("yearTo", e.target.value)}
-                    className="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="1900"
-                    max={new Date().getFullYear()}
-                  />
-                </div>
-              </div>
-            </div>
+      {/* Filtro Solo mías */}
+      <div>
+        <label className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50">
+          <input
+            type="checkbox"
+            checked={filters.myMovies}
+            onChange={(e) => updateFilter("myMovies", e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-700">Solo mías</span>
+        </label>
+      </div>
+    </div>
 
-            {/* Filtros adicionales */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-100">
-              <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={filters.myMovies}
-                    onChange={(e) => updateFilter("myMovies", e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">Solo mías</span>
-                </label>
-              </div>
-              <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={filters.unrated}
-                    onChange={(e) => updateFilter("unrated", e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">Sin calificar</span>
-                </label>
-              </div>
-            </div>
+    {/* Filtro Sin calificar */}
+    <div className="mt-3 p-2 border border-gray-300 rounded-md bg-gray-50">
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={filters.unrated}
+          onChange={(e) => updateFilter("unrated", e.target.checked)}
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+        <span className="text-sm text-gray-700">Sin calificar</span>
+      </label>
+    </div>
 
-            {/* Botones de acción */}
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={clearFilters}
-                className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                  Object.values(filters).some(v => v !== (Array.isArray(v) ? [] : false))
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                }`}
-                disabled={!Object.values(filters).some(v => v !== (Array.isArray(v) ? [] : false))}
-              >
-                Limpiar filtros
-              </button>
-            </div>
-          </div>
-        </section>
+    {/* Botones de acción */}
+    <div className="flex justify-end gap-2 mt-4">
+      <button
+        onClick={clearFilters}
+        className={`px-4 py-2 text-sm rounded-md transition-colors ${
+          Object.values(filters).some(v => v !== (Array.isArray(v) ? [] : false))
+            ? "bg-blue-600 text-white hover:bg-blue-700"
+            : "bg-gray-200 text-gray-500 cursor-not-allowed"
+        }`}
+        disabled={!Object.values(filters).some(v => v !== (Array.isArray(v) ? [] : false))}
+      >
+        Limpiar filtros
+      </button>
+    </div>
+  </div>
+</section>
 
-        {/* ← CONTADOR DE RESULTADOS */}
-        <div className="mb-4 text-right">
-          <span className="text-sm text-gray-600">
-            Mostrando {filteredMovies.length} de {movies.length} películas
-          </span>
-        </div>
+{/* ← CONTADOR DE RESULTADOS */}
+<div className="mb-4 text-right">
+  <span className="text-sm text-gray-600">
+    Mostrando {filteredMovies.length} de {movies.length} películas
+  </span>
+</div>
 
         <section className="mb-8">
           {currentUser ? (
