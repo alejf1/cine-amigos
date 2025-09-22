@@ -78,27 +78,53 @@ export default function App() {
     }
   }
 
-  async function addMovie(payload) {
-    try {
-      const insert = { ...payload, agregado_por: currentUser.id };
-      const { data, error } = await supabase
-        .from("peliculas")
-        .insert([insert])
-        .select("*, vistas(*)");
-      if (!error && data?.[0]) {
-        setMovies((prev) => [
-          ...prev,
-          { ...data[0], vistas: data[0].vistas || [] },
-        ]);
-        return true;
+async function addMovie(payload) {
+  try {
+    const insert = { 
+      ...payload, 
+      agregado_por: currentUser.id 
+    };
+    
+    const { data, error } = await supabase
+      .from("peliculas")
+      .insert([insert])
+      .select("*, vistas(*)");
+      
+    if (!error && data?.[0]) {
+      const newMovie = { ...data[0], vistas: data[0].vistas || [] };
+      
+      // ← NUEVO: Si el usuario marcó un estado de vista, crearlo automáticamente
+      if (payload.vistaEstado) {
+        await supabase
+          .from("vistas")
+          .insert([{
+            usuario_id: currentUser.id,
+            pelicula_id: data[0].id,
+            estado: payload.vistaEstado
+          }]);
+        
+        // Actualizar el estado local con la vista
+        newMovie.vistas = [
+          ...newMovie.vistas,
+          {
+            usuario_id: currentUser.id,
+            pelicula_id: data[0].id,
+            estado: payload.vistaEstado
+          }
+        ];
       }
-      console.error("Error al agregar película:", error);
-      return false;
-    } catch (error) {
-      console.error("Error en addMovie:", error);
-      return false;
+      
+      setMovies((prev) => [...prev, newMovie]);
+      return true;
     }
+    
+    console.error("Error al agregar película:", error);
+    return false;
+  } catch (error) {
+    console.error("Error en addMovie:", error);
+    return false;
   }
+}
 
   async function toggleView(movieId, userId, estado) {
     console.log("toggleView llamado:", {
