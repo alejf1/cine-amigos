@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export function useMovieSearch(titulo, isSelecting = false) {
+export function useMovieSearch(titulo, isSelecting = false, setIsSelecting) { // ← AGREGAR setIsSelecting
   const [suggestions, setSuggestions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
@@ -15,7 +15,7 @@ export function useMovieSearch(titulo, isSelecting = false) {
       setSearchLoading(true);
       try {
         const apiKey = import.meta.env.VITE_TMDB_API_KEY;
-        
+       
         if (!apiKey) {
           console.error('❌ TMDB API Key no configurada. Revisa tu .env');
           setSearchLoading(false);
@@ -38,8 +38,8 @@ export function useMovieSearch(titulo, isSelecting = false) {
 
         const combined = [
           ...(esData.results || []),
-          ...enData.results.filter(enMovie => 
-            !esData.results.some(esMovie => 
+          ...enData.results.filter(enMovie =>
+            !esData.results.some(esMovie =>
               esMovie.title.toLowerCase() === enMovie.title.toLowerCase()
             )
           )
@@ -61,20 +61,20 @@ export function useMovieSearch(titulo, isSelecting = false) {
     // Detectar idioma y ajustar título
     const isSpanish = suggestion.original_title?.toLowerCase() !== suggestion.title?.toLowerCase();
     const displayTitle = isSpanish ? suggestion.title : suggestion.original_title || suggestion.title;
-    
-    // Pausar búsqueda mientras se selecciona
+   
+    // ← MEJORADO: Cerrar inmediatamente y limpiar
     setIsSelecting(true);
-    
+    setSuggestions([]); // ← AGREGAR: Limpiar sugerencias inmediatamente
+   
     setTitulo(displayTitle);
     setGenero(suggestion.genre_ids?.map(getGenreName).join(', ') || '');
     setAnio(suggestion.release_date ? suggestion.release_date.split('-')[0] : '');
     setPoster(suggestion.poster_path ? `https://image.tmdb.org/t/p/w500${suggestion.poster_path}` : '');
-    
-    // Reanudar búsqueda después de un breve delay
-    setTimeout(() => {
-      setIsSelecting(false);
-      setSuggestions([]);
-    }, 500);
+   
+    // ← OPCIONAL: Reanudar búsqueda después (podés comentar esto si no querés)
+    // setTimeout(() => {
+    //   setIsSelecting(false);
+    // }, 500);
   };
 
   return {
@@ -84,7 +84,7 @@ export function useMovieSearch(titulo, isSelecting = false) {
   };
 }
 
-// Helper para géneros (expandido)
+// Helper para géneros (sin cambios)
 export function getGenreName(id) {
   const genres = {
     // Español
@@ -100,4 +100,3 @@ export function getGenreName(id) {
   };
   return genres[id] || 'Desconocido';
 }
-
