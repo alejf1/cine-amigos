@@ -9,23 +9,36 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
   const [poster, setPoster] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
-
+  const [viewStatus, setViewStatus] = useState("vista"); // Por defecto "vista"
   const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!titulo || !genero) return alert("Título y género son obligatorios");
-    setLoading(true);
-    const ok = await addMovie({ titulo, genero, anio: anio ? parseInt(anio) : null, poster });
-    setLoading(false);
-    if (ok) {
-      setTitulo(""); setGenero(""); setAnio(""); setPoster("");
-      setIsSelecting(false);
-      setOpen(false);
-    } else {
-      alert("Error al agregar la película");
-    }
+async function handleSubmit(e) {
+  e.preventDefault();
+  if (!titulo || !genero) return alert("Título y género son obligatorios");
+  setLoading(true);
+  
+  const ok = await addMovie({ 
+    titulo, 
+    genero, 
+    anio: anio ? parseInt(anio) : null, 
+    poster,
+    // ← NUEVO: Incluir el estado de vista
+    vistaEstado: viewStatus
+  });
+  
+  setLoading(false);
+  if (ok) {
+    setTitulo(""); 
+    setGenero(""); 
+    setAnio(""); 
+    setPoster("");
+    setViewStatus("vista"); // ← RESET
+    setIsSelecting(false);
+    setOpen(false);
+  } else {
+    alert("Error al agregar la película");
   }
+}
 
   return (
     <Transition.Root show={open} as={Fragment}>
@@ -115,6 +128,35 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                   placeholder="Poster (se autocompletará)" 
                   className="w-full border p-2 rounded" 
                 />
+                <div className="space-y-3">
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    ¿Ya la viste?
+  </label>
+  <div className="flex gap-2">
+    <button
+      type="button"
+      onClick={() => setViewStatus("vista")}
+      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
+        viewStatus === "vista" 
+          ? "bg-green-600 text-white" 
+          : "bg-gray-100 hover:bg-gray-200"
+      }`}
+    >
+      <EyeIcon className="w-4 h-4" /> Sí, la vi
+    </button>
+    <button
+      type="button"
+      onClick={() => setViewStatus("no vista")}
+      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
+        viewStatus === "no vista" 
+          ? "bg-red-500 text-white" 
+          : "bg-gray-100 hover:bg-gray-200"
+      }`}
+    >
+      <EyeSlashIcon className="w-4 h-4" /> No la vi
+    </button>
+  </div>
+</div>
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded bg-gray-100">Cancelar</button>
                   <button type="submit" className="px-4 py-2 rounded bg-red-600 text-white" disabled={loading}>
@@ -129,6 +171,7 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
     </Transition.Root>
   );
 }
+
 
 
 
