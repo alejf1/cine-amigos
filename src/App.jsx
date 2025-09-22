@@ -377,6 +377,39 @@ export default function App() {
     }
   }
 
+  // ← CALCULAR filteredMovies DENTRO DE App.jsx
+  const filteredMovies = movies.filter(movie => {
+    const { viewStatus, genres, yearFrom, yearTo, myMovies, unrated } = filters;
+
+    // Filtro por estado de vista del usuario actual
+    if (viewStatus !== "all") {
+      const userView = movie.vistas?.find(v => v.usuario_id === currentUser?.id)?.estado;
+      if (viewStatus === "vista" && userView !== "vista") return false;
+      if (viewStatus === "no_vista" && userView !== "no vista") return false;
+    }
+
+    // Filtro por género (case insensitive)
+    if (genres.length > 0 && movie.genero) {
+      if (!genres.some(genre => 
+        movie.genero.toLowerCase().includes(genre.toLowerCase())
+      )) {
+        return false;
+      }
+    }
+
+    // Filtro por año
+    if (yearFrom && movie.anio && movie.anio < parseInt(yearFrom)) return false;
+    if (yearTo && movie.anio && movie.anio > parseInt(yearTo)) return false;
+
+    // Filtro por mis películas
+    if (myMovies && movie.agregado_por !== currentUser?.id) return false;
+
+    // Filtro por sin calificar
+    if (unrated && movie.ratings && movie.ratings.length > 0) return false;
+
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
