@@ -93,7 +93,6 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                               type="button"
                               onClick={() => {
                                 handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting);
-                                setIsSelecting(true); // ← AGREGAR ESTA LÍNEA para cerrar la búsqueda
                               }}
                               className="text-blue-600 hover:text-blue-800 text-sm"
                               disabled={isSelecting}
@@ -173,3 +172,4 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
     </Transition.Root>
   );
 }
+
