@@ -80,46 +80,62 @@ export default function App() {
 
 async function addMovie(payload) {
   try {
-    const insert = { 
-      ...payload, 
-      agregado_por: currentUser.id 
+    // ← CORRECCIÓN: Filtrar el payload para peliculas (sin vistaEstado)
+    const moviePayload = {
+      titulo: payload.titulo,
+      genero: payload.genero,
+      anio: payload.anio,
+      poster: payload.poster,
+      agregado_por: currentUser.id
     };
     
+    // 1. Insertar la película
     const { data, error } = await supabase
       .from("peliculas")
-      .insert([insert])
+      .insert([moviePayload])
       .select("*, vistas(*)");
+    
+    if (error) {
+      console.error("Error al agregar película:", error);
+      return false;
+    }
+    
+    if (!data?.[0]) {
+      return false;
+    }
+    
+    const newMovieId = data[0].id;
+    const newMovie = { ...data[0], vistas: data[0].vistas || [] };
+    
+    // 2. Si hay vistaEstado, crear entrada en vistas automáticamente
+    if (payload.vistaEstado) {
+      const { error: vistaError } = await supabase
+        .from("vistas")
+        .insert([{
+          usuario_id: currentUser.id,
+          pelicula_id: newMovieId,
+          estado: payload.vistaEstado
+        }]);
       
-    if (!error && data?.[0]) {
-      const newMovie = { ...data[0], vistas: data[0].vistas || [] };
-      
-      // ← NUEVO: Si el usuario marcó un estado de vista, crearlo automáticamente
-      if (payload.vistaEstado) {
-        await supabase
-          .from("vistas")
-          .insert([{
-            usuario_id: currentUser.id,
-            pelicula_id: data[0].id,
-            estado: payload.vistaEstado
-          }]);
-        
+      if (vistaError) {
+        console.error("Error al agregar vista:", vistaError);
+        // No fallar la película por esto, solo log
+      } else {
         // Actualizar el estado local con la vista
         newMovie.vistas = [
           ...newMovie.vistas,
           {
             usuario_id: currentUser.id,
-            pelicula_id: data[0].id,
+            pelicula_id: newMovieId,
             estado: payload.vistaEstado
           }
         ];
       }
-      
-      setMovies((prev) => [...prev, newMovie]);
-      return true;
     }
     
-    console.error("Error al agregar película:", error);
-    return false;
+    // 3. Agregar al estado local
+    setMovies((prev) => [...prev, newMovie]);
+    return true;
   } catch (error) {
     console.error("Error en addMovie:", error);
     return false;
