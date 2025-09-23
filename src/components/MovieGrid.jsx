@@ -11,19 +11,21 @@ export default function MovieGrid({ movies, currentUser, toggleView, onDelete, o
   });
 
   return (
-  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-    {sortedMovies.map(m => (
-      <div key={m.id} id={`pelicula-${m.id}`}>
-        <MovieCard
-          movie={m}
-          currentUser={currentUser}
-          toggleView={toggleView}
-          onDelete={onDelete}
-          onEdit={onEdit}
-          updateRating={updateRating}
-        />
-      </div>
-    ))}
-  </div>
-);
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      {sortedMovies.map(m => (
+        <div key={m.id} id={`pelicula-${m.id}`}>
+          <MovieCard
+            movie={m}
+            currentUser={currentUser}
+            toggleView={toggleView}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            updateRating={updateRating}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
