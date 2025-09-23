@@ -21,27 +21,27 @@ export default function App() {
     fetchAll();
   }, []);
 
-useEffect(() => {
-  if (currentUser?.id) {
-    fetchAll(); // Recargar datos cuando cambie el usuario seleccionado
-    const channel = supabase.channel('notifs-changes')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notificaciones',
-        filter: `usuario_id=eq.${currentUser.id}`
-      }, (payload) => {
-        setNotifications((prev) => [payload.new, ...prev]);
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }
-}, [currentUser]);
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchAll(); // Recargar datos cuando cambie el usuario seleccionado
+      const channel = supabase.channel('notifs-changes')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notificaciones',
+          filter: `usuario_id=eq.${currentUser.id}`
+        }, (payload) => {
+          setNotifications((prev) => [payload.new, ...prev]);
+        })
+        .subscribe();
+      return () => supabase.removeChannel(channel);
+    }
+  }, [currentUser]);
 
   async function fetchAll() {
     try {
-      // Eliminar la llamada a supabase.auth.getUser()
       console.log("Usuario de auth: no se usa autenticación");
+      console.log("Usuario seleccionado:", currentUser?.id, currentUser?.nombre);
 
       const { data: usuarios } = await supabase
         .from("usuarios")
@@ -88,8 +88,8 @@ useEffect(() => {
       setMovies(normalized);
       setNotifications(notifs);
 
-      // Establecer currentUser al primer usuario si no está definido
       if (!currentUser && usuarios?.length > 0) {
+        console.log("Estableciendo usuario por defecto:", usuarios[0].id, usuarios[0].nombre);
         setCurrentUser(usuarios[0]);
       }
 
@@ -165,7 +165,21 @@ useEffect(() => {
     }
   }
 
-  // Resto de las funciones (toggleView, deleteMovie, updateMovie, updateRating, markAsRead) se mantienen iguales
+  async function markAsRead(notifId) {
+    try {
+      const { error } = await supabase
+        .from("notificaciones")
+        .update({ leida: true })
+        .eq("id", notifId);
+      if (error) throw error;
+      setNotifications((prev) => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
+      console.log("Notificación marcada como leída:", notifId);
+    } catch (error) {
+      console.error("Error al marcar notificación como leída:", error);
+    }
+  }
+
+  // Resto de las funciones (toggleView, deleteMovie, updateMovie, updateRating) se mantienen iguales
   // ...
 
   return (
