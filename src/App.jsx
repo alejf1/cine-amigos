@@ -382,6 +382,8 @@ async function updateRating(movieId, userId, rating) {
               onDelete={deleteMovie}
               onEdit={handleEditMovie}
               updateRating={updateRating}
+              sortMode={sortMode}
+              viewStatus={viewStatus}
             />
           ) : (
             <div className="text-center py-12">
