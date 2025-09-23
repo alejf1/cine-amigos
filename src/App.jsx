@@ -7,6 +7,7 @@ import AddMovieModal from "./components/AddMovieModal";
 import EditMovieModal from "./components/EditMovieModal";
 import UserStats from "./components/UserStats";
 import Leaderboard from "./components/Leaderboard";
+import LoginModal from "./components/LoginModal"; // Asegúrate de importar el modal
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -29,7 +30,6 @@ export default function App() {
     });
     return () => {
       authListener.subscription.unsubscribe();
-      <LoginModal open={!user} setOpen={setOpenAdd} /> // Usa setOpenAdd como temporal
     };
   }, []);
 
@@ -159,15 +159,125 @@ export default function App() {
     }
   }
 
+  async function toggleView(movieId, estado) {
+    try {
+      if (!user?.id) {
+        console.error("No hay usuario autenticado");
+        return;
+      }
+      const { error } = await supabase
+        .from("vistas")
+        .upsert(
+          { usuario_id: user.id, pelicula_id: movieId, estado },
+          { onConflict: "usuario_id,pelicula_id" }
+        );
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === movieId
+            ? {
+                ...m,
+                vistas: m.vistas.map((v) =>
+                  v.usuario_id === user.id ? { ...v, estado } : v
+                ),
+              }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Error al actualizar vista:", error);
+    }
+  }
+
+  async function deleteMovie(movieId) {
+    try {
+      if (!user?.id) {
+        console.error("No hay usuario autenticado");
+        return;
+      }
+      const { error } = await supabase
+        .from("peliculas")
+        .delete()
+        .eq("id", movieId)
+        .eq("agregado_por", user.id);
+      if (error) throw error;
+      setMovies((prev) => prev.filter((m) => m.id !== movieId));
+    } catch (error) {
+      console.error("Error al eliminar película:", error);
+    }
+  }
+
+  async function handleEditMovie(movie) {
+    setEditingMovie(movie);
+    setOpenEdit(true);
+  }
+
+  async function updateMovie(updatedMovie) {
+    try {
+      if (!user?.id) {
+        console.error("No hay usuario autenticado");
+        return false;
+      }
+      const { error } = await supabase
+        .from("peliculas")
+        .update({
+          titulo: updatedMovie.titulo,
+          genero: updatedMovie.genero,
+          anio: updatedMovie.anio,
+          poster: updatedMovie.poster,
+        })
+        .eq("id", updatedMovie.id)
+        .eq("agregado_por", user.id);
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === updatedMovie.id ? { ...m, ...updatedMovie } : m
+        )
+      );
+      setOpenEdit(false);
+      return true;
+    } catch (error) {
+      console.error("Error al actualizar película:", error);
+      return false;
+    }
+  }
+
+  async function updateRating(movieId, rating) {
+    try {
+      if (!user?.id) {
+        console.error("No hay usuario autenticado");
+        return;
+      }
+      const { error } = await supabase
+        .from("ratings")
+        .upsert(
+          { usuario_id: user.id, pelicula_id: movieId, rating },
+          { onConflict: "usuario_id,pelicula_id" }
+        );
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === movieId
+            ? {
+                ...m,
+                ratings: m.ratings.map((r) =>
+                  r.usuario_id === user.id ? { ...r, rating } : r
+                ),
+              }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Error al actualizar rating:", error);
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setUser(null);
     setNotifications([]);
     console.log("Usuario cerrado sesión");
   }
-
-  // Resto de las funciones (toggleView, deleteMovie, updateMovie, updateRating) se pueden adaptar similarmente
-  // Por simplicidad, te las proporcionaré si las necesitas
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -226,6 +336,7 @@ export default function App() {
         movie={editingMovie}
         updateMovie={updateMovie}
       />
+      <LoginModal open={!user} setOpen={setOpenAdd} /> {/* Temporal hasta que tengas un estado propio para el modal */}
     </div>
   );
 }
