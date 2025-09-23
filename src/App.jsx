@@ -179,8 +179,118 @@ export default function App() {
     }
   }
 
-  // Resto de las funciones (toggleView, deleteMovie, updateMovie, updateRating) se mantienen iguales
-  // ...
+  async function toggleView(movieId, estado) {
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        return;
+      }
+      const { error } = await supabase
+        .from("vistas")
+        .upsert(
+          { usuario_id: currentUser.id, pelicula_id: movieId, estado },
+          { onConflict: "usuario_id,pelicula_id" }
+        );
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === movieId
+            ? {
+                ...m,
+                vistas: m.vistas.map((v) =>
+                  v.usuario_id === currentUser.id ? { ...v, estado } : v
+                ),
+              }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Error al actualizar vista:", error);
+    }
+  }
+
+  async function deleteMovie(movieId) {
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        return;
+      }
+      const { error } = await supabase
+        .from("peliculas")
+        .delete()
+        .eq("id", movieId)
+        .eq("agregado_por", currentUser.id);
+      if (error) throw error;
+      setMovies((prev) => prev.filter((m) => m.id !== movieId));
+    } catch (error) {
+      console.error("Error al eliminar película:", error);
+    }
+  }
+
+  async function handleEditMovie(movie) {
+    setEditingMovie(movie);
+    setOpenEdit(true);
+  }
+
+  async function updateMovie(updatedMovie) {
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        return false;
+      }
+      const { error } = await supabase
+        .from("peliculas")
+        .update({
+          titulo: updatedMovie.titulo,
+          genero: updatedMovie.genero,
+          anio: updatedMovie.anio,
+          poster: updatedMovie.poster,
+        })
+        .eq("id", updatedMovie.id)
+        .eq("agregado_por", currentUser.id);
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === updatedMovie.id ? { ...m, ...updatedMovie } : m
+        )
+      );
+      setOpenEdit(false);
+      return true;
+    } catch (error) {
+      console.error("Error al actualizar película:", error);
+      return false;
+    }
+  }
+
+  async function updateRating(movieId, rating) {
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        return;
+      }
+      const { error } = await supabase
+        .from("ratings")
+        .upsert(
+          { usuario_id: currentUser.id, pelicula_id: movieId, rating },
+          { onConflict: "usuario_id,pelicula_id" }
+        );
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === movieId
+            ? {
+                ...m,
+                ratings: m.ratings.map((r) =>
+                  r.usuario_id === currentUser.id ? { ...r, rating } : r
+                ),
+              }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Error al actualizar rating:", error);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
