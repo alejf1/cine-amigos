@@ -7,11 +7,10 @@ import AddMovieModal from "./components/AddMovieModal";
 import EditMovieModal from "./components/EditMovieModal";
 import UserStats from "./components/UserStats";
 import Leaderboard from "./components/Leaderboard";
-import LoginModal from "./components/LoginModal"; // Asegúrate de importar el modal
 
 export default function App() {
-  const [user, setUser] = useState(null);
   const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [movies, setMovies] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [openAdd, setOpenAdd] = useState(false);
@@ -19,73 +18,82 @@ export default function App() {
   const [editingMovie, setEditingMovie] = useState(null);
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    fetchAll();
   }, []);
 
   useEffect(() => {
-    if (user?.id) {
-      fetchAll();
+    if (currentUser?.id) {
+      fetchAll(); // Recargar datos cuando cambie el usuario seleccionado
       const channel = supabase.channel('notifs-changes')
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'notificaciones',
-          filter: `usuario_id=eq.${user.id}`
+          filter: `usuario_id=eq.${currentUser.id}`
         }, (payload) => {
           setNotifications((prev) => [payload.new, ...prev]);
         })
         .subscribe();
       return () => supabase.removeChannel(channel);
     }
-  }, [user]);
+  }, [currentUser]);
 
   async function fetchAll() {
     try {
-      console.log("Usuario autenticado:", user?.id, user?.user_metadata?.nombre || user?.email);
-      if (!user?.id) {
-        console.log("No hay usuario autenticado, no se cargan datos");
-        return;
-      }
+      console.log("Usuario de auth: no se usa autenticación");
+      console.log("Usuario seleccionado:", currentUser?.id, currentUser?.nombre);
 
       const { data: usuarios } = await supabase
         .from("usuarios")
         .select("*")
         .order("nombre");
 
+      console.log(
+        "Usuarios de DB:",
+        usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
+      );
+
       const { data: peliculas } = await supabase
         .from("peliculas")
         .select("*, vistas(*), ratings (*, usuarios (nombre))")
         .order("titulo");
 
-      const normalized = peliculas?.map((p) => ({
-        ...p,
-        vistas: p.vistas || [],
-        ratings: p.ratings || [],
-      })) || [];
+      const normalized =
+        peliculas?.map((p) => ({
+          ...p,
+          vistas: p.vistas || [],
+          ratings: p.ratings || [],
+        })) || [];
 
-      const { data: notifData } = await supabase
-        .from("notificaciones")
-        .select("*")
-        .eq("usuario_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      const notifs = notifData || [];
+      let notifs = [];
+      if (currentUser?.id) {
+        console.log("Cargando notificaciones para usuario:", currentUser.id);
+        const { data: notifData, error } = await supabase
+          .from("notificaciones")
+          .select("*")
+          .eq("usuario_id", currentUser.id)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (error) {
+          console.error("Error al cargar notificaciones:", error);
+        } else {
+          console.log("Notificaciones obtenidas:", notifData);
+          notifs = notifData || [];
+        }
+      } else {
+        console.log("No hay usuario seleccionado, no se cargan notificaciones");
+      }
 
       setUsers(usuarios || []);
       setMovies(normalized);
       setNotifications(notifs);
 
+      if (!currentUser && usuarios?.length > 0) {
+        console.log("Estableciendo usuario por defecto:", usuarios[0].id, usuarios[0].nombre);
+        setCurrentUser(usuarios[0]);
+      }
+
+      console.log("Usuario actual final:", currentUser?.id);
       console.log("Películas cargadas:", normalized.length);
       console.log("Notificaciones cargadas:", notifs.length);
     } catch (error) {
@@ -95,9 +103,9 @@ export default function App() {
 
   async function addMovie(payload) {
     try {
-      if (!user?.id) {
-        console.error("No hay usuario autenticado");
-        alert("Por favor, inicia sesión para agregar una película");
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        alert("Por favor, selecciona un usuario antes de agregar una película");
         return false;
       }
 
@@ -106,7 +114,7 @@ export default function App() {
         genero: payload.genero,
         anio: payload.anio,
         poster: payload.poster,
-        agregado_por: user.id
+        agregado_por: currentUser.id
       };
       
       const { data, error } = await supabase
@@ -129,11 +137,23 @@ export default function App() {
       if (payload.vistaEstado) {
         const { error: vistaError } = await supabase
           .from("vistas")
-          .insert([{ usuario_id: user.id, pelicula_id: newMovieId, estado: payload.vistaEstado }]);
+          .insert([{
+            usuario_id: currentUser.id,
+            pelicula_id: newMovieId,
+            estado: payload.vistaEstado
+          }]);
+        
         if (vistaError) {
           console.error("Error al agregar vista:", vistaError);
         } else {
-          newMovie.vistas = [...newMovie.vistas, { usuario_id: user.id, pelicula_id: newMovieId, estado: payload.vistaEstado }];
+          newMovie.vistas = [
+            ...newMovie.vistas,
+            {
+              usuario_id: currentUser.id,
+              pelicula_id: newMovieId,
+              estado: payload.vistaEstado
+            }
+          ];
         }
       }
       
@@ -161,14 +181,14 @@ export default function App() {
 
   async function toggleView(movieId, estado) {
     try {
-      if (!user?.id) {
-        console.error("No hay usuario autenticado");
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
         return;
       }
       const { error } = await supabase
         .from("vistas")
         .upsert(
-          { usuario_id: user.id, pelicula_id: movieId, estado },
+          { usuario_id: currentUser.id, pelicula_id: movieId, estado },
           { onConflict: "usuario_id,pelicula_id" }
         );
       if (error) throw error;
@@ -178,7 +198,7 @@ export default function App() {
             ? {
                 ...m,
                 vistas: m.vistas.map((v) =>
-                  v.usuario_id === user.id ? { ...v, estado } : v
+                  v.usuario_id === currentUser.id ? { ...v, estado } : v
                 ),
               }
             : m
@@ -191,15 +211,15 @@ export default function App() {
 
   async function deleteMovie(movieId) {
     try {
-      if (!user?.id) {
-        console.error("No hay usuario autenticado");
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
         return;
       }
       const { error } = await supabase
         .from("peliculas")
         .delete()
         .eq("id", movieId)
-        .eq("agregado_por", user.id);
+        .eq("agregado_por", currentUser.id);
       if (error) throw error;
       setMovies((prev) => prev.filter((m) => m.id !== movieId));
     } catch (error) {
@@ -214,8 +234,8 @@ export default function App() {
 
   async function updateMovie(updatedMovie) {
     try {
-      if (!user?.id) {
-        console.error("No hay usuario autenticado");
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
         return false;
       }
       const { error } = await supabase
@@ -227,7 +247,7 @@ export default function App() {
           poster: updatedMovie.poster,
         })
         .eq("id", updatedMovie.id)
-        .eq("agregado_por", user.id);
+        .eq("agregado_por", currentUser.id);
       if (error) throw error;
       setMovies((prev) =>
         prev.map((m) =>
@@ -244,14 +264,14 @@ export default function App() {
 
   async function updateRating(movieId, rating) {
     try {
-      if (!user?.id) {
-        console.error("No hay usuario autenticado");
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
         return;
       }
       const { error } = await supabase
         .from("ratings")
         .upsert(
-          { usuario_id: user.id, pelicula_id: movieId, rating },
+          { usuario_id: currentUser.id, pelicula_id: movieId, rating },
           { onConflict: "usuario_id,pelicula_id" }
         );
       if (error) throw error;
@@ -261,7 +281,7 @@ export default function App() {
             ? {
                 ...m,
                 ratings: m.ratings.map((r) =>
-                  r.usuario_id === user.id ? { ...r, rating } : r
+                  r.usuario_id === currentUser.id ? { ...r, rating } : r
                 ),
               }
             : m
@@ -272,22 +292,15 @@ export default function App() {
     }
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setNotifications([]);
-    console.log("Usuario cerrado sesión");
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
         users={users}
-        currentUser={user}
+        currentUser={currentUser}
+        setCurrentUser={setCurrentUser}
         onOpenAdd={() => setOpenAdd(true)}
         notifications={notifications}
         markAsRead={markAsRead}
-        signOut={signOut}
       />
       <main className="max-w-6xl mx-auto px-4 py-8">
         <section className="mb-6">
@@ -299,15 +312,15 @@ export default function App() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <UserStats user={user} movies={movies} />
+              <UserStats user={currentUser} movies={movies} />
             </div>
           </div>
         </section>
         <section className="mb-8">
-          {user ? (
+          {currentUser ? (
             <MovieGrid
               movies={movies}
-              currentUser={user}
+              currentUser={currentUser}
               toggleView={toggleView}
               onDelete={deleteMovie}
               onEdit={handleEditMovie}
@@ -315,13 +328,7 @@ export default function App() {
             />
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500">Por favor, inicia sesión.</p>
-              <button
-                onClick={() => supabase.auth.signInWithPassword({ email: "test@example.com", password: "password" })}
-                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-              >
-                Iniciar sesión (prueba)
-              </button>
+              <p className="text-gray-500">Por favor, selecciona un usuario.</p>
             </div>
           )}
         </section>
@@ -336,7 +343,6 @@ export default function App() {
         movie={editingMovie}
         updateMovie={updateMovie}
       />
-      <LoginModal open={!user} setOpen={setOpenAdd} /> {/* Temporal hasta que tengas un estado propio para el modal */}
     </div>
   );
 }
