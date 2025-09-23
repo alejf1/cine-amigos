@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { Menu } from "@headlessui/react";
 import { PlusIcon, UserIcon } from "@heroicons/react/24/outline";
+import Notificaciones from "./Notificaciones";
 
 export default function Navbar({ users, currentUser, setCurrentUser, onOpenAdd }) {
   return (
@@ -18,6 +19,9 @@ export default function Navbar({ users, currentUser, setCurrentUser, onOpenAdd }
           >
             <PlusIcon className="w-4 h-4" /> Añadir
           </button>
+
+          {/* ← NOTIFICACIONES */}
+          <Notificaciones currentUser={currentUser} />
 
           <Menu as="div" className="relative">
             <Menu.Button className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-md">
@@ -44,5 +48,3 @@ export default function Navbar({ users, currentUser, setCurrentUser, onOpenAdd }
     </nav>
   );
 }
-
-
