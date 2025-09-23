@@ -29,6 +29,7 @@ export default function App() {
     });
     return () => {
       authListener.subscription.unsubscribe();
+      <LoginModal open={!user} setOpen={setOpenAdd} /> // Usa setOpenAdd como temporal
     };
   }, []);
 
