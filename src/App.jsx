@@ -21,21 +21,22 @@ export default function App() {
     fetchAll();
   }, []);
 
-  useEffect(() => {
-    if (currentUser?.id) {
-      const channel = supabase.channel('notifs-changes')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notificaciones',
-          filter: `usuario_id=eq.${currentUser.id}`
-        }, (payload) => {
-          setNotifications((prev) => [payload.new, ...prev]);
-        })
-        .subscribe();
-      return () => supabase.removeChannel(channel);
-    }
-  }, [currentUser]);
+useEffect(() => {
+  if (currentUser?.id) {
+    fetchAll(); // Recargar datos cuando cambie el usuario seleccionado
+    const channel = supabase.channel('notifs-changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notificaciones',
+        filter: `usuario_id=eq.${currentUser.id}`
+      }, (payload) => {
+        setNotifications((prev) => [payload.new, ...prev]);
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }
+}, [currentUser]);
 
   async function fetchAll() {
     try {
