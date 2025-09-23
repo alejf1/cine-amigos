@@ -11,7 +11,7 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [movies, setMovies] = useState([]);
-  const [notifications, setNotifications] = useState([]); // ← NUEVO ESTADO
+  const [notifications, setNotifications] = useState([]);
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [editingMovie, setEditingMovie] = useState(null);
@@ -22,7 +22,6 @@ export default function App() {
 
   useEffect(() => {
     if (currentUser) {
-      // Suscripción a notificaciones en tiempo real
       const channel = supabase.channel('notifs-changes')
         .on('postgres_changes', {
           event: 'INSERT',
@@ -76,7 +75,6 @@ export default function App() {
           ratings: p.ratings || [],
         })) || [];
 
-      // Fetch notificaciones para el usuario actual
       let notifs = [];
       if (user) {
         const { data: notifData } = await supabase
@@ -90,7 +88,7 @@ export default function App() {
 
       setUsers(usuarios || []);
       setMovies(normalized);
-      setNotifications(notifs); // ← SETEAR NOTIFICACIONES
+      setNotifications(notifs);
 
       if (user && usuarios) {
         const authUser = usuarios.find((u) => u.id === user.id);
@@ -361,7 +359,7 @@ export default function App() {
     }
   }
 
-  async function markAsRead(notifId) { // ← NUEVA FUNCIÓN
+  async function markAsRead(notifId) {
     try {
       const { error } = await supabase
         .from("notificaciones")
@@ -382,8 +380,8 @@ export default function App() {
         currentUser={currentUser}
         setCurrentUser={setCurrentUser}
         onOpenAdd={() => setOpenAdd(true)}
-        notifications={notifications} // ← NUEVO PROP
-        markAsRead={markAsRead} // ← NUEVO PROP
+        notifications={notifications}
+        markAsRead={markAsRead}
       />
       <main className="max-w-6xl mx-auto px-4 py-8">
         <section className="mb-6">
@@ -418,4 +416,14 @@ export default function App() {
         <section>
           <Leaderboard users={users} movies={movies} />
         </section>
-      </main
+      </main> {/* Asegúrate que este tag esté correctamente cerrado */}
+      <AddMovieModal open={openAdd} setOpen={setOpenAdd} addMovie={addMovie} />
+      <EditMovieModal
+        open={openEdit}
+        setOpen={setOpenEdit}
+        movie={editingMovie}
+        updateMovie={updateMovie}
+      />
+    </div>
+  );
+}
