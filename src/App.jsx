@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import Navbar from "./components/Navbar";
 import MovieGrid from "./components/MovieGrid";
 import AddMovieModal from "./components/AddMovieModal";
-import EditMovieModal from "./components/EditMovieModal"; // ← NUEVO IMPORT
+import EditMovieModal from "./components/EditMovieModal";
 import UserStats from "./components/UserStats";
 import Leaderboard from "./components/Leaderboard";
 
@@ -12,12 +12,15 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [movies, setMovies] = useState([]);
   const [openAdd, setOpenAdd] = useState(false);
-  const [openEdit, setOpenEdit] = useState(false); // ← NUEVO ESTADO
-  const [editingMovie, setEditingMovie] = useState(null); // ← NUEVO ESTADO
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editingMovie, setEditingMovie] = useState(null);
+
+  // ← NUEVOS ESTADOS PARA FILTROS SIMPLES
+  const [sortMode, setSortMode] = useState("default"); // "default" o "topRated"
+  const [viewStatus, setViewStatus] = useState("all"); // "all", "vista", "no_vista"
 
   useEffect(() => {
     fetchAll();
-    // Opcional: subscribir a cambios con supabase.realtime
   }, []);
 
   async function fetchAll() {
@@ -31,7 +34,6 @@ export default function App() {
         .from("usuarios")
         .select("*")
         .order("nombre");
-
       console.log(
         "Usuarios de DB:",
         usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
@@ -50,7 +52,6 @@ export default function App() {
         `
         )
         .order("titulo");
-
       const normalized =
         peliculas?.map((p) => ({
           ...p,
@@ -69,6 +70,7 @@ export default function App() {
         );
         setCurrentUser(authUser || usuarios[0] || null);
       } else {
+        console.log("No hay usuario autenticado, usando primero de la lista");
         setCurrentUser(usuarios?.[0] || null);
       }
       console.log("Usuario actual final:", currentUser?.id);
@@ -78,84 +80,41 @@ export default function App() {
     }
   }
 
-async function addMovie(payload) {
-  try {
-    // ← CORRECCIÓN: Filtrar el payload para peliculas (sin vistaEstado)
-    const moviePayload = {
-      titulo: payload.titulo,
-      genero: payload.genero,
-      anio: payload.anio,
-      poster: payload.poster,
-      agregado_por: currentUser.id
-    };
-    
-    // 1. Insertar la película
-    const { data, error } = await supabase
-      .from("peliculas")
-      .insert([moviePayload])
-      .select("*, vistas(*)");
-    
-    if (error) {
-      console.error("Error al agregar película:", error);
-      return false;
-    }
-    
-    if (!data?.[0]) {
-      return false;
-    }
-    
-    const newMovieId = data[0].id;
-    const newMovie = { ...data[0], vistas: data[0].vistas || [] };
-    
-    // 2. Si hay vistaEstado, crear entrada en vistas automáticamente
-    if (payload.vistaEstado) {
-      const { error: vistaError } = await supabase
-        .from("vistas")
-        .insert([{
-          usuario_id: currentUser.id,
-          pelicula_id: newMovieId,
-          estado: payload.vistaEstado
-        }]);
-      
-      if (vistaError) {
-        console.error("Error al agregar vista:", vistaError);
-        // No fallar la película por esto, solo log
-      } else {
-        // Actualizar el estado local con la vista
-        newMovie.vistas = [
-          ...newMovie.vistas,
-          {
-            usuario_id: currentUser.id,
-            pelicula_id: newMovieId,
-            estado: payload.vistaEstado
-          }
-        ];
+  async function addMovie(payload) {
+    try {
+      const moviePayload = {
+        titulo: payload.titulo,
+        genero: payload.genero,
+        anio: payload.anio,
+        poster: payload.poster,
+        agregado_por: currentUser?.id || users[0]?.id, // Fallback si no hay currentUser
+      };
+
+      const { data, error } = await supabase
+        .from("peliculas")
+        .insert([moviePayload])
+        .select("*, vistas(*)");
+      if (error) {
+        console.error("Error al agregar película:", error);
+        return false;
       }
+      if (!data?.[0]) return false;
+
+      const newMovie = { ...data[0], vistas: data[0].vistas || [] };
+      setMovies((prev) => [...prev, newMovie]);
+      return true;
+    } catch (error) {
+      console.error("Error en addMovie:", error);
+      return false;
     }
-    
-    // 3. Agregar al estado local
-    setMovies((prev) => [...prev, newMovie]);
-    return true;
-  } catch (error) {
-    console.error("Error en addMovie:", error);
-    return false;
   }
-}
 
   async function toggleView(movieId, userId, estado) {
-    console.log("toggleView llamado:", {
-      movieId,
-      userId,
-      estado,
-      currentUserId: currentUser?.id,
-    });
-
     if (!movieId || !userId) {
       console.error("IDs faltantes:", { movieId, userId });
       alert("Error: IDs faltantes");
       return;
     }
-
     try {
       setMovies((prev) =>
         prev.map((m) => {
@@ -164,7 +123,6 @@ async function addMovie(payload) {
             (v) => v.usuario_id === userId
           );
           let vistasActualizadas;
-
           if (vistaExistente) {
             vistasActualizadas = m.vistas.map((v) =>
               v.usuario_id === userId ? { ...v, estado } : v
@@ -172,29 +130,18 @@ async function addMovie(payload) {
           } else {
             vistasActualizadas = [
               ...(m.vistas || []),
-              {
-                usuario_id: userId,
-                estado,
-                pelicula_id: movieId,
-              },
+              { usuario_id: userId, estado, pelicula_id: movieId },
             ];
           }
           return { ...m, vistas: vistasActualizadas };
         })
       );
-
-      const { error } = await supabase.from("vistas").upsert(
-        [
-          {
-            usuario_id: userId,
-            pelicula_id: movieId,
-            estado,
-          },
-        ],
-        {
-          onConflict: "usuario_id,pelicula_id",
-        }
-      );
+      const { error } = await supabase
+        .from("vistas")
+        .upsert(
+          [{ usuario_id: userId, pelicula_id: movieId, estado }],
+          { onConflict: "usuario_id,pelicula_id" }
+        );
       if (error) {
         console.error("Error en Supabase upsert:", error);
         throw error;
@@ -211,7 +158,7 @@ async function addMovie(payload) {
     try {
       const pelicula = movies.find((m) => m.id === movieId);
       if (!pelicula) return;
-      if (pelicula.agregado_por !== currentUser.id) {
+      if (pelicula.agregado_por !== currentUser?.id) {
         alert("Solo quien agregó la película puede eliminarla.");
         return;
       }
@@ -219,7 +166,6 @@ async function addMovie(payload) {
         .from("peliculas")
         .delete()
         .eq("id", movieId);
-
       if (!error) {
         setMovies((prev) => prev.filter((m) => m.id !== movieId));
         console.log("Película eliminada correctamente");
@@ -241,17 +187,15 @@ async function addMovie(payload) {
   async function updateMovie(movieId, updatedData) {
     try {
       const pelicula = movies.find((m) => m.id === movieId);
-      if (!pelicula || pelicula.agregado_por !== currentUser.id) {
+      if (!pelicula || pelicula.agregado_por !== currentUser?.id) {
         alert("Solo quien agregó la película puede editarla.");
         return false;
       }
-
       const { data, error } = await supabase
         .from("peliculas")
         .update(updatedData)
         .eq("id", movieId)
         .select("*, vistas(*)");
-
       if (!error && data?.[0]) {
         setMovies((prev) =>
           prev.map((movie) =>
@@ -263,7 +207,6 @@ async function addMovie(payload) {
         console.log("Película actualizada correctamente");
         return true;
       }
-
       console.error("Error al actualizar película:", error);
       return false;
     } catch (error) {
@@ -272,84 +215,70 @@ async function addMovie(payload) {
     }
   }
 
-async function updateRating(movieId, userId, rating) {
-  try {
-    // 1. Verificar si ya existe un rating para esta película/usuario
-    const { data: existingRating, error: findError } = await supabase
-      .from('ratings')
-      .select('id')
-      .eq('pelicula_id', movieId)
-      .eq('usuario_id', userId)
-      .single();
-
-    if (findError && findError.code !== 'PGRST116') { // PGRST116 = no rows found
-      throw findError;
-    }
-
-    let result;
-    if (existingRating) {
-      // 2. Actualizar rating existente
-      const { data, error } = await supabase
-        .from('ratings')
-        .update({ 
-          rating, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', existingRating.id)
-        .select()
+  async function updateRating(movieId, userId, rating) {
+    try {
+      const { data: existingRating, error: findError } = await supabase
+        .from("ratings")
+        .select("id")
+        .eq("pelicula_id", movieId)
+        .eq("usuario_id", userId)
         .single();
-      
-      if (error) throw error;
-      result = data;
-    } else {
-      // 3. Crear nuevo rating
-      const { data, error } = await supabase
-        .from('ratings')
-        .insert({
-          pelicula_id: movieId,
-          usuario_id: userId,
-          rating: rating,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      result = data;
+      if (findError && findError.code !== "PGRST116") throw findError;
+
+      let result;
+      if (existingRating) {
+        const { data, error } = await supabase
+          .from("ratings")
+          .update({ rating, updated_at: new Date().toISOString() })
+          .eq("id", existingRating.id)
+          .select()
+          .single();
+        if (error) throw error;
+        result = data;
+      } else {
+        const { data, error } = await supabase
+          .from("ratings")
+          .insert({
+            pelicula_id: movieId,
+            usuario_id: userId,
+            rating,
+            created_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        result = data;
+      }
+
+      setMovies((prev) =>
+        prev.map((movie) =>
+          movie.id === movieId
+            ? {
+                ...movie,
+                ratings: movie.ratings?.find((r) => r.usuario_id === userId)
+                  ? movie.ratings.map((r) =>
+                      r.usuario_id === userId ? { ...r, rating } : r
+                    )
+                  : [
+                      ...(movie.ratings || []),
+                      {
+                        id: result.id || Date.now(),
+                        usuario_id: userId,
+                        rating,
+                        created_at: new Date().toISOString(),
+                      },
+                    ],
+              }
+            : movie
+        )
+      );
+      console.log("Rating actualizado correctamente:", result);
+    } catch (error) {
+      console.error("Error updating rating:", error);
+      fetchAll();
+      alert("Error al guardar la calificación. Inténtalo de nuevo.");
     }
-
-    // 4. Actualizar el estado local (optimistic update)
-    setMovies((prev) =>
-      prev.map((movie) =>
-        movie.id === movieId
-          ? {
-              ...movie,
-              ratings: movie.ratings?.find((r) => r.usuario_id === userId)
-                ? movie.ratings.map((r) =>
-                    r.usuario_id === userId ? { ...r, rating } : r
-                  )
-                : [
-                    ...(movie.ratings || []),
-                    {
-                      id: result.id || Date.now(), // Usar el ID real de Supabase si existe
-                      usuario_id: userId,
-                      rating,
-                      created_at: new Date().toISOString(),
-                    },
-                  ],
-            }
-          : movie
-      )
-    );
-
-    console.log('Rating actualizado correctamente:', result);
-  } catch (error) {
-    console.error('Error updating rating:', error);
-    // Si falla, recargar datos para revertir el cambio
-    fetchAll();
-    alert('Error al guardar la calificación. Inténtalo de nuevo.');
   }
-}
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -372,7 +301,46 @@ async function updateRating(movieId, userId, rating) {
               <UserStats user={currentUser} movies={movies} />
             </div>
           </div>
+
+          {/* ← NUEVOS FILTROS SIMPLES */}
+          <div className="flex flex-wrap gap-2 items-center justify-center sm:justify-start mt-4 bg-white p-3 rounded-lg shadow-sm">
+            {/* Filtro de ordenamiento */}
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value)}
+              className="p-2 border border-gray-300 rounded-md text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="default">Orden predeterminado</option>
+              <option value="topRated">⭐ Más valoradas</option>
+            </select>
+
+            {/* Filtro de estado de vista */}
+            <select
+              value={viewStatus}
+              onChange={(e) => setViewStatus(e.target.value)}
+              className="p-2 border border-gray-300 rounded-md text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todas</option>
+              <option value="vista">Vistas</option>
+              <option value="no_vista">No vistas</option>
+            </select>
+
+            {/* Botón limpiar filtros (solo si hay filtros activos) */}
+            {(sortMode !== "default" || viewStatus !== "all") && (
+              <button
+                onClick={() => {
+                  setSortMode("default");
+                  setViewStatus("all");
+                }}
+                className="px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center gap-1 transition-colors"
+              >
+                <span className="text-xs">🗑️</span>
+                Limpiar
+              </button>
+            )}
+          </div>
         </section>
+
         <section className="mb-8">
           {currentUser ? (
             <MovieGrid
@@ -382,8 +350,8 @@ async function updateRating(movieId, userId, rating) {
               onDelete={deleteMovie}
               onEdit={handleEditMovie}
               updateRating={updateRating}
-              sortMode={sortMode}
-              viewStatus={viewStatus}
+              sortMode={sortMode}      // ← CORREGIDO
+              viewStatus={viewStatus}  // ← CORREGIDO
             />
           ) : (
             <div className="text-center py-12">
@@ -396,7 +364,6 @@ async function updateRating(movieId, userId, rating) {
         </section>
       </main>
       <AddMovieModal open={openAdd} setOpen={setOpenAdd} addMovie={addMovie} />
-
       <EditMovieModal
         open={openEdit}
         setOpen={setOpenEdit}
