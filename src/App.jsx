@@ -289,21 +289,6 @@ export default function App() {
       );
     if (error) throw error;
 
-    // Consulta los ratings actualizados para la película
-    async function updateRating(movieId, userId, rating) {
-  try {
-    if (!userId) {
-      console.error("No hay usuario seleccionado");
-      return;
-    }
-    const { error } = await supabase
-      .from("ratings")
-      .upsert(
-        { usuario_id: userId, pelicula_id: movieId, rating },
-        { onConflict: "usuario_id,pelicula_id" }
-      );
-    if (error) throw error;
-
     // Consulta TODOS los ratings de la película, no solo del usuario actual
     const { data: allRatings, error: fetchError } = await supabase
       .from("ratings")
