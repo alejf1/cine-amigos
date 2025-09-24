@@ -44,103 +44,107 @@ export default function App() {
   }, [currentUser]);
 
   async function fetchAll() {
-    try {
-      console.log("Usuario de auth: no se usa autenticación");
-      console.log("Usuario seleccionado:", currentUser?.id, currentUser?.nombre);
+  try {
+    console.log("Usuario de auth: no se usa autenticación");
+    console.log("Usuario seleccionado:", currentUser?.id, currentUser?.nombre);
 
-      const { data: usuarios } = await supabase
-        .from("usuarios")
+    const { data: usuarios } = await supabase
+      .from("usuarios")
+      .select("*")
+      .order("nombre");
+
+    console.log(
+      "Usuarios de DB:",
+      usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
+    );
+
+    const { data: peliculas } = await supabase
+      .from("peliculas")
+      .select("*, vistas(*), ratings (*, usuarios (nombre)), created_at") // Especificar created_at
+      .order("titulo");
+
+    const normalized =
+      peliculas?.map((p) => ({
+        ...p,
+        vistas: p.vistas || [],
+        ratings: p.ratings || [],
+      })) || [];
+
+    let notifs = [];
+    if (currentUser?.id) {
+      console.log("Cargando notificaciones para usuario:", currentUser.id);
+      const { data: notifData, error } = await supabase
+        .from("notificaciones")
         .select("*")
-        .order("nombre");
-
-      console.log(
-        "Usuarios de DB:",
-        usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
-      );
-
-      const { data: peliculas } = await supabase
-        .from("peliculas")
-        .select("*, vistas(*), ratings (*, usuarios (nombre))")
-        .order("titulo");
-
-      const normalized =
-        peliculas?.map((p) => ({
-          ...p,
-          vistas: p.vistas || [],
-          ratings: p.ratings || [],
-        })) || [];
-
-      let notifs = [];
-      if (currentUser?.id) {
-        console.log("Cargando notificaciones para usuario:", currentUser.id);
-        const { data: notifData, error } = await supabase
-          .from("notificaciones")
-          .select("*")
-          .eq("usuario_id", currentUser.id)
-          .order("created_at", { ascending: false })
-          .limit(20);
-        if (error) {
-          console.error("Error al cargar notificaciones:", error);
-        } else {
-          console.log("Notificaciones obtenidas:", notifData);
-          notifs = notifData || [];
-        }
+        .eq("usuario_id", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) {
+        console.error("Error al cargar notificaciones:", error);
       } else {
-        console.log("No hay usuario seleccionado, no se cargan notificaciones");
+        console.log("Notificaciones obtenidas:", notifData);
+        notifs = notifData || [];
       }
-
-      setUsers(usuarios || []);
-      setMovies(normalized);
-      setNotifications(notifs);
-
-      if (!currentUser && usuarios?.length > 0) {
-        console.log("Estableciendo usuario por defecto:", usuarios[0].id, usuarios[0].nombre);
-        setCurrentUser(usuarios[0]);
-      }
-
-      console.log("Usuario actual final:", currentUser?.id);
-      console.log("Películas cargadas:", normalized.length);
-      console.log("Notificaciones cargadas:", notifs.length);
-    } catch (error) {
-      console.error("Error en fetchAll:", error);
+    } else {
+      console.log("No hay usuario seleccionado, no se cargan notificaciones");
     }
+
+    setUsers(usuarios || []);
+    setMovies(normalized);
+    setNotifications(notifs);
+
+    if (!currentUser && usuarios?.length > 0) {
+      console.log("Estableciendo usuario por defecto:", usuarios[0].id, usuarios[0].nombre);
+      setCurrentUser(usuarios[0]);
+    }
+
+    console.log("Usuario actual final:", currentUser?.id);
+    console.log("Películas cargadas:", normalized.length);
+    console.log("Notificaciones cargadas:", notifs.length);
+  } catch (error) {
+    console.error("Error en fetchAll:", error);
   }
+}
 
   // Función para filtrar y ordenar películas
   const filteredMovies = () => {
-    let filtered = [...movies];
+  let filtered = [...movies];
 
-    // Filtro: Vistas y no vistas
-    if (filterViewStatus !== 'all' && currentUser?.id) {
-      filtered = filtered.filter((m) => {
-        const vista = m.vistas.find((v) => v.usuario_id === currentUser.id);
-        if (filterViewStatus === 'vista') {
-          return vista && vista.estado === 'vista';
-        } else if (filterViewStatus === 'no vista') {
-          return !vista || vista.estado === 'no vista';
-        }
-        return true;
-      });
-    }
+  // Filtro: Vistas y no vistas
+  if (filterViewStatus !== 'all' && currentUser?.id) {
+    filtered = filtered.filter((m) => {
+      const vista = m.vistas.find((v) => v.usuario_id === currentUser.id);
+      if (filterViewStatus === 'vista') {
+        return vista && vista.estado === 'vista';
+      } else if (filterViewStatus === 'no vista') {
+        return !vista || vista.estado === 'no vista';
+      }
+      return true;
+    });
+  }
 
-    // Filtro: Agregadas recientemente (últimos 7 días)
-    if (filterRecent) {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      filtered = filtered.filter((m) => new Date(m.created_at) >= sevenDaysAgo);
-    }
+  // Filtro: Agregadas recientemente (últimos 7 días)
+  if (filterRecent) {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    filtered = filtered.filter((m) => {
+      console.log("Película:", m.titulo, "created_at:", m.created_at);
+      const createdAt = m.created_at ? new Date(m.created_at) : null;
+      return createdAt && createdAt >= sevenDaysAgo;
+    });
+  }
 
-    // Ordenar: Las más valoradas (promedio de ratings descendente)
-    if (filterTopRated) {
-      filtered = filtered.sort((a, b) => {
-        const avgA = a.ratings.reduce((sum, r) => sum + r.rating, 0) / (a.ratings.length || 1);
-        const avgB = b.ratings.reduce((sum, r) => sum + r.rating, 0) / (b.ratings.length || 1);
-        return avgB - avgA;
-      });
-    }
+  // Ordenar: Las más valoradas (promedio de ratings descendente)
+  if (filterTopRated) {
+    filtered = filtered.sort((a, b) => {
+      const avgA = a.ratings.reduce((sum, r) => sum + r.rating, 0) / (a.ratings.length || 1);
+      const avgB = b.ratings.reduce((sum, r) => sum + r.rating, 0) / (b.ratings.length || 1);
+      return avgB - avgA;
+    });
+  }
 
-    return filtered;
-  };
+  return filtered;
+};
 
   // Resetear filtros
   const resetFilters = () => {
