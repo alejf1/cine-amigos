@@ -1,4 +1,4 @@
-// App.jsx (versión actualizada con diseño mejorado y filtro removido)
+// App.jsx (versión corregida con depuración de ordenamiento)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Navbar from "./components/Navbar";
@@ -17,7 +17,7 @@ export default function App() {
   const [openEdit, setOpenEdit] = useState(false);
   const [editingMovie, setEditingMovie] = useState(null);
 
-  // Estados para filtros (eliminé filterRecent)
+  // Estados para filtros
   const [filterViewStatus, setFilterViewStatus] = useState('all'); // 'all', 'vista', 'no vista'
   const [filterTopRated, setFilterTopRated] = useState(false); // true para ordenar por promedio de ratings
 
@@ -105,7 +105,7 @@ export default function App() {
     }
   }
 
-  // Función para filtrar y ordenar películas (eliminé filterRecent)
+  // Función para filtrar y ordenar películas con depuración
   const filteredMovies = () => {
     let filtered = [...movies];
 
@@ -122,19 +122,21 @@ export default function App() {
       });
     }
 
-    // Ordenar: Las más valoradas (promedio de ratings descendente)
+    // Ordenar: Las más valoradas (promedio de ratings descendente) con depuración
     if (filterTopRated) {
       filtered = filtered.sort((a, b) => {
-        const avgA = a.ratings.reduce((sum, r) => sum + r.rating, 0) / (a.ratings.length || 1);
-        const avgB = b.ratings.reduce((sum, r) => sum + r.rating, 0) / (b.ratings.length || 1);
-        return avgB - avgA;
+        const avgA = a.ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / (a.ratings.length || 1);
+        const avgB = b.ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / (b.ratings.length || 1);
+        console.log(`Película ${a.titulo}: Promedio = ${avgA}, Ratings = ${JSON.stringify(a.ratings)}`);
+        console.log(`Película ${b.titulo}: Promedio = ${avgB}, Ratings = ${JSON.stringify(b.ratings)}`);
+        return avgB - avgA; // Orden descendente
       });
     }
 
     return filtered;
   };
 
-  // Resetear filtros (ajustado para solo los filtros restantes)
+  // Resetear filtros
   const resetFilters = () => {
     setFilterViewStatus('all');
     setFilterTopRated(false);
