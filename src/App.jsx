@@ -102,68 +102,71 @@ export default function App() {
   }
 
   async function addMovie(payload) {
-    try {
-      if (!currentUser?.id) {
-        console.error("No hay usuario seleccionado");
-        alert("Por favor, selecciona un usuario antes de agregar una película");
-        return false;
-      }
-
-      const moviePayload = {
-        titulo: payload.titulo,
-        genero: payload.genero,
-        anio: payload.anio,
-        poster: payload.poster,
-        agregado_por: currentUser.id
-      };
-      
-      const { data, error } = await supabase
-        .from("peliculas")
-        .insert([moviePayload])
-        .select("*, vistas(*)");
-      
-      if (error) {
-        console.error("Error al agregar película:", error);
-        return false;
-      }
-      
-      if (!data?.[0]) {
-        return false;
-      }
-      
-      const newMovieId = data[0].id;
-      const newMovie = { ...data[0], vistas: data[0].vistas || [] };
-      
-      if (payload.vistaEstado) {
-        const { error: vistaError } = await supabase
-          .from("vistas")
-          .insert([{
-            usuario_id: currentUser.id,
-            pelicula_id: newMovieId,
-            estado: payload.vistaEstado
-          }]);
-        
-        if (vistaError) {
-          console.error("Error al agregar vista:", vistaError);
-        } else {
-          newMovie.vistas = [
-            ...newMovie.vistas,
-            {
-              usuario_id: currentUser.id,
-              pelicula_id: newMovieId,
-              estado: payload.vistaEstado
-            }
-          ];
-        }
-      }
-      
-      setMovies((prev) => [...prev, newMovie]);
-      return true;
-    } catch (error) {
-      console.error("Error en addMovie:", error);
+  try {
+    if (!currentUser?.id) {
+      console.error("No hay usuario seleccionado");
+      alert("Por favor, selecciona un usuario antes de agregar una película");
       return false;
     }
+
+    const moviePayload = {
+      titulo: payload.titulo,
+      genero: payload.genero,
+      anio: payload.anio,
+      poster: payload.poster,
+      agregado_por: currentUser.id
+    };
+    
+    const { data, error } = await supabase
+      .from("peliculas")
+      .insert([moviePayload])
+      .select("*, vistas(*), ratings (*, usuarios (nombre))"); // Asegúrate de incluir ratings en la selección
+    
+    if (error) {
+      console.error("Error al agregar película:", error);
+      return false;
+    }
+    
+    if (!data?.[0]) {
+      return false;
+    }
+    
+    const newMovie = { 
+      ...data[0], 
+      vistas: data[0].vistas || [], 
+      ratings: data[0].ratings || [] // ← Inicializa ratings como array vacío si no existe
+    };
+    
+    if (payload.vistaEstado) {
+      const { error: vistaError } = await supabase
+        .from("vistas")
+        .insert([{
+          usuario_id: currentUser.id,
+          pelicula_id: newMovie.id,
+          estado: payload.vistaEstado
+        }]);
+      
+      if (vistaError) {
+        console.error("Error al agregar vista:", vistaError);
+      } else {
+        newMovie.vistas = [
+          ...newMovie.vistas,
+          {
+            usuario_id: currentUser.id,
+            pelicula_id: newMovie.id,
+            estado: payload.vistaEstado
+          }
+        ];
+      }
+    }
+    
+    setMovies((prev) => [...prev, newMovie]);
+    return true;
+  } catch (error) {
+    console.error("Error en addMovie:", error);
+    return false;
   }
+}
 
   async function markAsRead(notifId) {
     try {
@@ -262,16 +265,16 @@ export default function App() {
     }
   }
 
-  async function updateRating(movieId, userId, rating) {  // ← Agrega userId como parámetro
+  async function updateRating(movieId, userId, rating) {
   try {
-    if (!userId) {  // ← Usa userId en lugar de currentUser.id
+    if (!userId) {
       console.error("No hay usuario seleccionado");
       return;
     }
     const { error } = await supabase
       .from("ratings")
       .upsert(
-        { usuario_id: userId, pelicula_id: movieId, rating },  // ← Usa rating como entero
+        { usuario_id: userId, pelicula_id: movieId, rating },
         { onConflict: "usuario_id,pelicula_id" }
       );
     if (error) throw error;
@@ -280,8 +283,8 @@ export default function App() {
         m.id === movieId
           ? {
               ...m,
-              ratings: m.ratings.map((r) =>
-                r.usuario_id === userId ? { ...r, rating } : r  // ← Usa userId
+              ratings: (m.ratings || []).map((r) =>  // ← Inicializa como array vacío si es undefined
+                r.usuario_id === userId ? { ...r, rating } : r
               ),
             }
           : m
@@ -289,10 +292,9 @@ export default function App() {
     );
   } catch (error) {
     console.error("Error al actualizar rating:", error);
-    alert('Hubo un error al guardar tu calificación. Intentá de nuevo.');  // ← Agrega alerta para el usuario
+    alert('Hubo un error al guardar tu calificación. Intentá de nuevo.');
   }
 }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
