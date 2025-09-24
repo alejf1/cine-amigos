@@ -278,23 +278,32 @@ export default function App() {
         { onConflict: "usuario_id,pelicula_id" }
       );
     if (error) throw error;
+
+    // Consulta los ratings actualizados para la película
+    const { data: updatedRatings, error: fetchError } = await supabase
+      .from("ratings")
+      .select("*")
+      .eq("pelicula_id", movieId)
+      .eq("usuario_id", userId);
+    if (fetchError) throw fetchError;
+
     setMovies((prev) =>
       prev.map((m) =>
         m.id === movieId
           ? {
               ...m,
-              ratings: (m.ratings || []).map((r) =>  // ← Inicializa como array vacío si es undefined
-                r.usuario_id === userId ? { ...r, rating } : r
-              ),
+              ratings: updatedRatings || [], // Usa los ratings actualizados
             }
           : m
       )
     );
+    console.log(`¡Película calificada con ${rating} estrella${rating !== 1 ? 's' : ''}! ⭐`);
   } catch (error) {
     console.error("Error al actualizar rating:", error);
     alert('Hubo un error al guardar tu calificación. Intentá de nuevo.');
   }
 }
+  
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
