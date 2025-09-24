@@ -179,35 +179,35 @@ export default function App() {
     }
   }
 
-  async function toggleView(movieId, estado) {
-    try {
-      if (!currentUser?.id) {
-        console.error("No hay usuario seleccionado");
-        return;
-      }
-      const { error } = await supabase
-        .from("vistas")
-        .upsert(
-          { usuario_id: currentUser.id, pelicula_id: movieId, estado },
-          { onConflict: "usuario_id,pelicula_id" }
-        );
-      if (error) throw error;
-      setMovies((prev) =>
-        prev.map((m) =>
-          m.id === movieId
-            ? {
-                ...m,
-                vistas: m.vistas.map((v) =>
-                  v.usuario_id === currentUser.id ? { ...v, estado } : v
-                ),
-              }
-            : m
-        )
-      );
-    } catch (error) {
-      console.error("Error al actualizar vista:", error);
+  async function toggleView(movieId, userId, estado) {  // ← Agrega userId como parámetro
+  try {
+    if (!userId) {  // ← Usa userId en lugar de currentUser.id
+      console.error("No hay usuario seleccionado");
+      return;
     }
+    const { error } = await supabase
+      .from("vistas")
+      .upsert(
+        { usuario_id: userId, pelicula_id: movieId, estado },  // ← Usa userId
+        { onConflict: "usuario_id,pelicula_id" }
+      );
+    if (error) throw error;
+    setMovies((prev) =>
+      prev.map((m) =>
+        m.id === movieId
+          ? {
+              ...m,
+              vistas: m.vistas.map((v) =>
+                v.usuario_id === userId ? { ...v, estado } : v  // ← Usa userId
+              ),
+            }
+          : m
+      )
+    );
+  } catch (error) {
+    console.error("Error al actualizar vista:", error);
   }
+}
 
   async function deleteMovie(movieId) {
     try {
