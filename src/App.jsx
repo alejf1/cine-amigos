@@ -1,4 +1,4 @@
-// App.jsx (versión corregida con depuración de ordenamiento)
+// App.jsx (versión corregida con ordenamiento mejorado)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Navbar from "./components/Navbar";
@@ -105,7 +105,7 @@ export default function App() {
     }
   }
 
-  // Función para filtrar y ordenar películas con depuración
+  // Función para filtrar y ordenar películas con corrección
   const filteredMovies = () => {
     let filtered = [...movies];
 
@@ -124,13 +124,14 @@ export default function App() {
 
     // Ordenar: Las más valoradas (promedio de ratings descendente) con depuración
     if (filterTopRated) {
-      filtered = filtered.sort((a, b) => {
+      filtered = [...filtered].sort((a, b) => {
         const avgA = a.ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / (a.ratings.length || 1);
         const avgB = b.ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / (b.ratings.length || 1);
         console.log(`Película ${a.titulo}: Promedio = ${avgA}, Ratings = ${JSON.stringify(a.ratings)}`);
         console.log(`Película ${b.titulo}: Promedio = ${avgB}, Ratings = ${JSON.stringify(b.ratings)}`);
         return avgB - avgA; // Orden descendente
       });
+      console.log("Lista ordenada final:", filtered.map(m => ({titulo: m.titulo, promedio: m.ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / (m.ratings.length || 1)})));
     }
 
     return filtered;
