@@ -64,15 +64,18 @@ export default function App() {
       );
 
       const { data: peliculas } = await supabase
-        .from("peliculas")
-        .select("*, vistas(*), ratings (*, usuarios (nombre))")
-        .order("titulo");
+  .from("peliculas")
+  .select("*, vistas(*), ratings (*, usuarios (nombre)), sinopsis, duracion, director")  // ← Agrega los nuevos campos
+  .order("titulo");
 
       const normalized =
         peliculas?.map((p) => ({
           ...p,
           vistas: p.vistas || [],
           ratings: p.ratings || [],
+          sinopsis: p.sinopsis || '',  // ← Defaults
+          duracion: p.duracion || null,
+          director: p.director || ''
         })) || [];
 
       let notifs = [];
