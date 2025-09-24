@@ -262,35 +262,36 @@ export default function App() {
     }
   }
 
-  async function updateRating(movieId, rating) {
-    try {
-      if (!currentUser?.id) {
-        console.error("No hay usuario seleccionado");
-        return;
-      }
-      const { error } = await supabase
-        .from("ratings")
-        .upsert(
-          { usuario_id: currentUser.id, pelicula_id: movieId, rating },
-          { onConflict: "usuario_id,pelicula_id" }
-        );
-      if (error) throw error;
-      setMovies((prev) =>
-        prev.map((m) =>
-          m.id === movieId
-            ? {
-                ...m,
-                ratings: m.ratings.map((r) =>
-                  r.usuario_id === currentUser.id ? { ...r, rating } : r
-                ),
-              }
-            : m
-        )
-      );
-    } catch (error) {
-      console.error("Error al actualizar rating:", error);
+  async function updateRating(movieId, userId, rating) {  // ← Agrega userId como parámetro
+  try {
+    if (!userId) {  // ← Usa userId en lugar de currentUser.id
+      console.error("No hay usuario seleccionado");
+      return;
     }
+    const { error } = await supabase
+      .from("ratings")
+      .upsert(
+        { usuario_id: userId, pelicula_id: movieId, rating },  // ← Usa rating como entero
+        { onConflict: "usuario_id,pelicula_id" }
+      );
+    if (error) throw error;
+    setMovies((prev) =>
+      prev.map((m) =>
+        m.id === movieId
+          ? {
+              ...m,
+              ratings: m.ratings.map((r) =>
+                r.usuario_id === userId ? { ...r, rating } : r  // ← Usa userId
+              ),
+            }
+          : m
+      )
+    );
+  } catch (error) {
+    console.error("Error al actualizar rating:", error);
+    alert('Hubo un error al guardar tu calificación. Intentá de nuevo.');  // ← Agrega alerta para el usuario
   }
+}
 
   return (
     <div className="min-h-screen bg-gray-50">
