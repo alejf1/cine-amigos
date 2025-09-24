@@ -91,9 +91,9 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
           </button>
 
           <button
-            onClick={() => toggleView(movie.id, currentUser.id, "no_vista")}
+            onClick={() => toggleView(movie.id, currentUser.id, "no vista")}
             className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
-              vistaUsuario === "no_vista" ? "bg-red-500 text-white" : "bg-gray-100"
+              vistaUsuario === "no vista" ? "bg-red-500 text-white" : "bg-gray-100"
             }`}
             title="Marcar como no vista"
           >
@@ -185,4 +185,5 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
     </motion.div>
   );
 }
+
 
