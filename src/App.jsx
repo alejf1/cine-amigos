@@ -22,21 +22,31 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (currentUser?.id) {
-      fetchAll(); // Recargar datos cuando cambie el usuario seleccionado
-      const channel = supabase.channel('notifs-changes')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notificaciones',
-          filter: `usuario_id=eq.${currentUser.id}`
-        }, (payload) => {
-          setNotifications((prev) => [payload.new, ...prev]);
-        })
-        .subscribe();
-      return () => supabase.removeChannel(channel);
-    }
-  }, [currentUser]);
+  if (currentUser?.id) {
+    fetchAll();
+    const channel = supabase.channel('notifs-changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notificaciones',
+        filter: `usuario_id=eq.${currentUser.id}`
+      }, (payload) => {
+        console.log('Evento Realtime recibido:', payload.new);
+        setNotifications((prev) => {
+          console.log('Actualizando notificaciones:', [payload.new, ...prev]);
+          return [payload.new, ...prev];
+        });
+      })
+      .subscribe((status) => {
+        console.log('Estado de la suscripción:', status);
+      }, (error) => {
+        console.error('Error en la suscripción:', error);
+      });
+    return () => supabase.removeChannel(channel);
+  } else {
+    setNotifications([]);
+  }
+}, [currentUser]);
 
   async function fetchAll() {
     try {
