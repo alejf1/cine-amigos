@@ -1,4 +1,4 @@
-// App.jsx (versión corregida con ordenamiento mejorado)
+// App.jsx (versión simplificada con solo filtro Vistas/No vistas)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Navbar from "./components/Navbar";
@@ -17,9 +17,8 @@ export default function App() {
   const [openEdit, setOpenEdit] = useState(false);
   const [editingMovie, setEditingMovie] = useState(null);
 
-  // Estados para filtros
+  // Estado para filtro
   const [filterViewStatus, setFilterViewStatus] = useState('all'); // 'all', 'vista', 'no vista'
-  const [filterTopRated, setFilterTopRated] = useState(false); // true para ordenar por promedio de ratings
 
   useEffect(() => {
     fetchAll();
@@ -44,18 +43,10 @@ export default function App() {
 
   async function fetchAll() {
     try {
-      console.log("Usuario de auth: no se usa autenticación");
-      console.log("Usuario seleccionado:", currentUser?.id, currentUser?.nombre);
-
       const { data: usuarios } = await supabase
         .from("usuarios")
         .select("*")
         .order("nombre");
-
-      console.log(
-        "Usuarios de DB:",
-        usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
-      );
 
       const { data: peliculas } = await supabase
         .from("peliculas")
@@ -71,7 +62,6 @@ export default function App() {
 
       let notifs = [];
       if (currentUser?.id) {
-        console.log("Cargando notificaciones para usuario:", currentUser.id);
         const { data: notifData, error } = await supabase
           .from("notificaciones")
           .select("*")
@@ -81,11 +71,8 @@ export default function App() {
         if (error) {
           console.error("Error al cargar notificaciones:", error);
         } else {
-          console.log("Notificaciones obtenidas:", notifData);
           notifs = notifData || [];
         }
-      } else {
-        console.log("No hay usuario seleccionado, no se cargan notificaciones");
       }
 
       setUsers(usuarios || []);
@@ -93,19 +80,14 @@ export default function App() {
       setNotifications(notifs);
 
       if (!currentUser && usuarios?.length > 0) {
-        console.log("Estableciendo usuario por defecto:", usuarios[0].id, usuarios[0].nombre);
         setCurrentUser(usuarios[0]);
       }
-
-      console.log("Usuario actual final:", currentUser?.id);
-      console.log("Películas cargadas:", normalized.length);
-      console.log("Notificaciones cargadas:", notifs.length);
     } catch (error) {
       console.error("Error en fetchAll:", error);
     }
   }
 
-  // Función para filtrar y ordenar películas con corrección
+  // Función para filtrar películas
   const filteredMovies = () => {
     let filtered = [...movies];
 
@@ -122,25 +104,12 @@ export default function App() {
       });
     }
 
-    // Ordenar: Las más valoradas (promedio de ratings descendente) con depuración
-    if (filterTopRated) {
-      filtered = [...filtered].sort((a, b) => {
-        const avgA = a.ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / (a.ratings.length || 1);
-        const avgB = b.ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / (b.ratings.length || 1);
-        console.log(`Película ${a.titulo}: Promedio = ${avgA}, Ratings = ${JSON.stringify(a.ratings)}`);
-        console.log(`Película ${b.titulo}: Promedio = ${avgB}, Ratings = ${JSON.stringify(b.ratings)}`);
-        return avgB - avgA; // Orden descendente
-      });
-      console.log("Lista ordenada final:", filtered.map(m => ({titulo: m.titulo, promedio: m.ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / (m.ratings.length || 1)})));
-    }
-
     return filtered;
   };
 
   // Resetear filtros
   const resetFilters = () => {
     setFilterViewStatus('all');
-    setFilterTopRated(false);
   };
 
   async function addMovie(payload) {
@@ -215,7 +184,6 @@ export default function App() {
         .eq("id", notifId);
       if (error) throw error;
       setNotifications((prev) => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
-      console.log("Notificación marcada como leída:", notifId);
     } catch (error) {
       console.error("Error al marcar notificación como leída:", error);
     }
@@ -374,17 +342,6 @@ export default function App() {
                 <option value="vista">Vistas</option>
                 <option value="no vista">No vistas</option>
               </select>
-            </div>
-
-            {/* Filtro Las más valoradas */}
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={filterTopRated}
-                onChange={(e) => setFilterTopRated(e.target.checked)}
-                className="h-5 w-5 text-red-600 border-gray-300 rounded focus:ring-red-500 transition duration-200"
-              />
-              <label className="text-sm font-medium text-gray-700">Ordenar por valoradas</label>
             </div>
 
             {/* Botón de reset con diseño mejorado */}
