@@ -290,11 +290,25 @@ export default function App() {
     if (error) throw error;
 
     // Consulta los ratings actualizados para la película
-    const { data: updatedRatings, error: fetchError } = await supabase
+    async function updateRating(movieId, userId, rating) {
+  try {
+    if (!userId) {
+      console.error("No hay usuario seleccionado");
+      return;
+    }
+    const { error } = await supabase
+      .from("ratings")
+      .upsert(
+        { usuario_id: userId, pelicula_id: movieId, rating },
+        { onConflict: "usuario_id,pelicula_id" }
+      );
+    if (error) throw error;
+
+    // Consulta TODOS los ratings de la película, no solo del usuario actual
+    const { data: allRatings, error: fetchError } = await supabase
       .from("ratings")
       .select("*")
-      .eq("pelicula_id", movieId)
-      .eq("usuario_id", userId);
+      .eq("pelicula_id", movieId);
     if (fetchError) throw fetchError;
 
     setMovies((prev) =>
@@ -302,7 +316,7 @@ export default function App() {
         m.id === movieId
           ? {
               ...m,
-              ratings: updatedRatings || [], // Usa los ratings actualizados
+              ratings: allRatings || [], // Actualiza con todos los ratings
             }
           : m
       )
