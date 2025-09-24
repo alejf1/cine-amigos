@@ -1,4 +1,4 @@
-// App.jsx (versión completa corregida)
+// App.jsx (versión actualizada con diseño mejorado y filtro removido)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Navbar from "./components/Navbar";
@@ -17,9 +17,8 @@ export default function App() {
   const [openEdit, setOpenEdit] = useState(false);
   const [editingMovie, setEditingMovie] = useState(null);
 
-  // Estados para filtros
+  // Estados para filtros (eliminé filterRecent)
   const [filterViewStatus, setFilterViewStatus] = useState('all'); // 'all', 'vista', 'no vista'
-  const [filterRecent, setFilterRecent] = useState(false); // true para mostrar agregadas recientemente
   const [filterTopRated, setFilterTopRated] = useState(false); // true para ordenar por promedio de ratings
 
   useEffect(() => {
@@ -44,112 +43,100 @@ export default function App() {
   }, [currentUser]);
 
   async function fetchAll() {
-  try {
-    console.log("Usuario de auth: no se usa autenticación");
-    console.log("Usuario seleccionado:", currentUser?.id, currentUser?.nombre);
+    try {
+      console.log("Usuario de auth: no se usa autenticación");
+      console.log("Usuario seleccionado:", currentUser?.id, currentUser?.nombre);
 
-    const { data: usuarios } = await supabase
-      .from("usuarios")
-      .select("*")
-      .order("nombre");
-
-    console.log(
-      "Usuarios de DB:",
-      usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
-    );
-
-    const { data: peliculas } = await supabase
-      .from("peliculas")
-      .select("*, vistas(*), ratings (*, usuarios (nombre)), created_at") // Especificar created_at
-      .order("titulo");
-
-    const normalized =
-      peliculas?.map((p) => ({
-        ...p,
-        vistas: p.vistas || [],
-        ratings: p.ratings || [],
-      })) || [];
-
-    let notifs = [];
-    if (currentUser?.id) {
-      console.log("Cargando notificaciones para usuario:", currentUser.id);
-      const { data: notifData, error } = await supabase
-        .from("notificaciones")
+      const { data: usuarios } = await supabase
+        .from("usuarios")
         .select("*")
-        .eq("usuario_id", currentUser.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (error) {
-        console.error("Error al cargar notificaciones:", error);
+        .order("nombre");
+
+      console.log(
+        "Usuarios de DB:",
+        usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
+      );
+
+      const { data: peliculas } = await supabase
+        .from("peliculas")
+        .select("*, vistas(*), ratings (*, usuarios (nombre))")
+        .order("titulo");
+
+      const normalized =
+        peliculas?.map((p) => ({
+          ...p,
+          vistas: p.vistas || [],
+          ratings: p.ratings || [],
+        })) || [];
+
+      let notifs = [];
+      if (currentUser?.id) {
+        console.log("Cargando notificaciones para usuario:", currentUser.id);
+        const { data: notifData, error } = await supabase
+          .from("notificaciones")
+          .select("*")
+          .eq("usuario_id", currentUser.id)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (error) {
+          console.error("Error al cargar notificaciones:", error);
+        } else {
+          console.log("Notificaciones obtenidas:", notifData);
+          notifs = notifData || [];
+        }
       } else {
-        console.log("Notificaciones obtenidas:", notifData);
-        notifs = notifData || [];
+        console.log("No hay usuario seleccionado, no se cargan notificaciones");
       }
-    } else {
-      console.log("No hay usuario seleccionado, no se cargan notificaciones");
+
+      setUsers(usuarios || []);
+      setMovies(normalized);
+      setNotifications(notifs);
+
+      if (!currentUser && usuarios?.length > 0) {
+        console.log("Estableciendo usuario por defecto:", usuarios[0].id, usuarios[0].nombre);
+        setCurrentUser(usuarios[0]);
+      }
+
+      console.log("Usuario actual final:", currentUser?.id);
+      console.log("Películas cargadas:", normalized.length);
+      console.log("Notificaciones cargadas:", notifs.length);
+    } catch (error) {
+      console.error("Error en fetchAll:", error);
     }
-
-    setUsers(usuarios || []);
-    setMovies(normalized);
-    setNotifications(notifs);
-
-    if (!currentUser && usuarios?.length > 0) {
-      console.log("Estableciendo usuario por defecto:", usuarios[0].id, usuarios[0].nombre);
-      setCurrentUser(usuarios[0]);
-    }
-
-    console.log("Usuario actual final:", currentUser?.id);
-    console.log("Películas cargadas:", normalized.length);
-    console.log("Notificaciones cargadas:", notifs.length);
-  } catch (error) {
-    console.error("Error en fetchAll:", error);
   }
-}
 
-  // Función para filtrar y ordenar películas
+  // Función para filtrar y ordenar películas (eliminé filterRecent)
   const filteredMovies = () => {
-  let filtered = [...movies];
+    let filtered = [...movies];
 
-  // Filtro: Vistas y no vistas
-  if (filterViewStatus !== 'all' && currentUser?.id) {
-    filtered = filtered.filter((m) => {
-      const vista = m.vistas.find((v) => v.usuario_id === currentUser.id);
-      if (filterViewStatus === 'vista') {
-        return vista && vista.estado === 'vista';
-      } else if (filterViewStatus === 'no vista') {
-        return !vista || vista.estado === 'no vista';
-      }
-      return true;
-    });
-  }
+    // Filtro: Vistas y no vistas
+    if (filterViewStatus !== 'all' && currentUser?.id) {
+      filtered = filtered.filter((m) => {
+        const vista = m.vistas.find((v) => v.usuario_id === currentUser.id);
+        if (filterViewStatus === 'vista') {
+          return vista && vista.estado === 'vista';
+        } else if (filterViewStatus === 'no vista') {
+          return !vista || vista.estado === 'no vista';
+        }
+        return true;
+      });
+    }
 
-  // Filtro: Agregadas recientemente (últimos 7 días)
-  if (filterRecent) {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    filtered = filtered.filter((m) => {
-      console.log("Película:", m.titulo, "created_at:", m.created_at);
-      const createdAt = m.created_at ? new Date(m.created_at) : null;
-      return createdAt && createdAt >= sevenDaysAgo;
-    });
-  }
+    // Ordenar: Las más valoradas (promedio de ratings descendente)
+    if (filterTopRated) {
+      filtered = filtered.sort((a, b) => {
+        const avgA = a.ratings.reduce((sum, r) => sum + r.rating, 0) / (a.ratings.length || 1);
+        const avgB = b.ratings.reduce((sum, r) => sum + r.rating, 0) / (b.ratings.length || 1);
+        return avgB - avgA;
+      });
+    }
 
-  // Ordenar: Las más valoradas (promedio de ratings descendente)
-  if (filterTopRated) {
-    filtered = filtered.sort((a, b) => {
-      const avgA = a.ratings.reduce((sum, r) => sum + r.rating, 0) / (a.ratings.length || 1);
-      const avgB = b.ratings.reduce((sum, r) => sum + r.rating, 0) / (b.ratings.length || 1);
-      return avgB - avgA;
-    });
-  }
+    return filtered;
+  };
 
-  return filtered;
-};
-
-  // Resetear filtros
+  // Resetear filtros (ajustado para solo los filtros restantes)
   const resetFilters = () => {
     setFilterViewStatus('all');
-    setFilterRecent(false);
     setFilterTopRated(false);
   };
 
@@ -369,16 +356,16 @@ export default function App() {
           </div>
         </section>
 
-        {/* Sección de filtros (cuadrado rojo) */}
-        <section className="mb-4 bg-white p-4 rounded-md shadow flex flex-col md:flex-row items-start md:items-center gap-4 justify-between">
-          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+        {/* Sección de filtros con diseño mejorado */}
+        <section className="mb-6 bg-gradient-to-r from-gray-100 to-white p-5 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex flex-col md:flex-row items-center gap-6">
             {/* Filtro Vistas y no vistas */}
-            <div className="flex flex-col w-full md:w-auto">
-              <label className="text-sm font-medium mb-1">Vistas</label>
+            <div className="w-full md:w-auto">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Filtrar por vistas</label>
               <select
                 value={filterViewStatus}
                 onChange={(e) => setFilterViewStatus(e.target.value)}
-                className="border p-2 rounded-md w-full md:w-40"
+                className="w-full md:w-48 p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-200"
               >
                 <option value="all">Todas</option>
                 <option value="vista">Vistas</option>
@@ -386,36 +373,25 @@ export default function App() {
               </select>
             </div>
 
-            {/* Filtro Agregadas recientemente */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={filterRecent}
-                onChange={(e) => setFilterRecent(e.target.checked)}
-                className="h-4 w-4"
-              />
-              <label className="text-sm font-medium">Agregadas recientemente</label>
-            </div>
-
             {/* Filtro Las más valoradas */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <input
                 type="checkbox"
                 checked={filterTopRated}
                 onChange={(e) => setFilterTopRated(e.target.checked)}
-                className="h-4 w-4"
+                className="h-5 w-5 text-red-600 border-gray-300 rounded focus:ring-red-500 transition duration-200"
               />
-              <label className="text-sm font-medium">Las más valoradas</label>
+              <label className="text-sm font-medium text-gray-700">Ordenar por valoradas</label>
             </div>
-          </div>
 
-          {/* Botón de reset */}
-          <button
-            onClick={resetFilters}
-            className="bg-gray-200 px-4 py-2 rounded-md text-sm hover:bg-gray-300 transition w-full md:w-auto"
-          >
-            Limpiar filtros
-          </button>
+            {/* Botón de reset con diseño mejorado */}
+            <button
+              onClick={resetFilters}
+              className="mt-4 md:mt-0 w-full md:w-auto px-6 py-2.5 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-200"
+            >
+              Limpiar filtros
+            </button>
+          </div>
         </section>
 
         <section className="mb-8">
