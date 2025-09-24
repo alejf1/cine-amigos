@@ -1,4 +1,4 @@
-// App.jsx (actualizado con filtros)
+// App.jsx (versión completa corregida)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Navbar from "./components/Navbar";
@@ -150,14 +150,195 @@ export default function App() {
   };
 
   async function addMovie(payload) {
-    // Código existente, sin cambios
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        alert("Por favor, selecciona un usuario antes de agregar una película");
+        return false;
+      }
+
+      const moviePayload = {
+        titulo: payload.titulo,
+        genero: payload.genero,
+        anio: payload.anio,
+        poster: payload.poster,
+        agregado_por: currentUser.id
+      };
+      
+      const { data, error } = await supabase
+        .from("peliculas")
+        .insert([moviePayload])
+        .select("*, vistas(*)");
+      
+      if (error) {
+        console.error("Error al agregar película:", error);
+        return false;
+      }
+      
+      if (!data?.[0]) {
+        return false;
+      }
+      
+      const newMovieId = data[0].id;
+      const newMovie = { ...data[0], vistas: data[0].vistas || [] };
+      
+      if (payload.vistaEstado) {
+        const { error: vistaError } = await supabase
+          .from("vistas")
+          .insert([{
+            usuario_id: currentUser.id,
+            pelicula_id: newMovieId,
+            estado: payload.vistaEstado
+          }]);
+        
+        if (vistaError) {
+          console.error("Error al agregar vista:", vistaError);
+        } else {
+          newMovie.vistas = [
+            ...newMovie.vistas,
+            {
+              usuario_id: currentUser.id,
+              pelicula_id: newMovieId,
+              estado: payload.vistaEstado
+            }
+          ];
+        }
+      }
+      
+      setMovies((prev) => [...prev, newMovie]);
+      return true;
+    } catch (error) {
+      console.error("Error en addMovie:", error);
+      return false;
+    }
   }
 
   async function markAsRead(notifId) {
-    // Código existente, sin cambios
+    try {
+      const { error } = await supabase
+        .from("notificaciones")
+        .update({ leida: true })
+        .eq("id", notifId);
+      if (error) throw error;
+      setNotifications((prev) => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
+      console.log("Notificación marcada como leída:", notifId);
+    } catch (error) {
+      console.error("Error al marcar notificación como leída:", error);
+    }
   }
 
-  // Otras funciones (toggleView, deleteMovie, etc.) sin cambios
+  async function toggleView(movieId, estado) {
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        return;
+      }
+      const { error } = await supabase
+        .from("vistas")
+        .upsert(
+          { usuario_id: currentUser.id, pelicula_id: movieId, estado },
+          { onConflict: "usuario_id,pelicula_id" }
+        );
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === movieId
+            ? {
+                ...m,
+                vistas: m.vistas.map((v) =>
+                  v.usuario_id === currentUser.id ? { ...v, estado } : v
+                ),
+              }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Error al actualizar vista:", error);
+    }
+  }
+
+  async function deleteMovie(movieId) {
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        return;
+      }
+      const { error } = await supabase
+        .from("peliculas")
+        .delete()
+        .eq("id", movieId)
+        .eq("agregado_por", currentUser.id);
+      if (error) throw error;
+      setMovies((prev) => prev.filter((m) => m.id !== movieId));
+    } catch (error) {
+      console.error("Error al eliminar película:", error);
+    }
+  }
+
+  async function handleEditMovie(movie) {
+    setEditingMovie(movie);
+    setOpenEdit(true);
+  }
+
+  async function updateMovie(updatedMovie) {
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        return false;
+      }
+      const { error } = await supabase
+        .from("peliculas")
+        .update({
+          titulo: updatedMovie.titulo,
+          genero: updatedMovie.genero,
+          anio: updatedMovie.anio,
+          poster: updatedMovie.poster,
+        })
+        .eq("id", updatedMovie.id)
+        .eq("agregado_por", currentUser.id);
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === updatedMovie.id ? { ...m, ...updatedMovie } : m
+        )
+      );
+      setOpenEdit(false);
+      return true;
+    } catch (error) {
+      console.error("Error al actualizar película:", error);
+      return false;
+    }
+  }
+
+  async function updateRating(movieId, rating) {
+    try {
+      if (!currentUser?.id) {
+        console.error("No hay usuario seleccionado");
+        return;
+      }
+      const { error } = await supabase
+        .from("ratings")
+        .upsert(
+          { usuario_id: currentUser.id, pelicula_id: movieId, rating },
+          { onConflict: "usuario_id,pelicula_id" }
+        );
+      if (error) throw error;
+      setMovies((prev) =>
+        prev.map((m) =>
+          m.id === movieId
+            ? {
+                ...m,
+                ratings: m.ratings.map((r) =>
+                  r.usuario_id === currentUser.id ? { ...r, rating } : r
+                ),
+              }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Error al actualizar rating:", error);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
