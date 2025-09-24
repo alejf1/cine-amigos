@@ -1,4 +1,4 @@
-// App.jsx (versión simplificada con solo filtro Vistas/No vistas)
+// App.jsx
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Navbar from "./components/Navbar";
@@ -16,9 +16,6 @@ export default function App() {
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [editingMovie, setEditingMovie] = useState(null);
-
-  // Estado para filtro
-  const [filterViewStatus, setFilterViewStatus] = useState('all'); // 'all', 'vista', 'no vista'
 
   useEffect(() => {
     fetchAll();
@@ -43,10 +40,18 @@ export default function App() {
 
   async function fetchAll() {
     try {
+      console.log("Usuario de auth: no se usa autenticación");
+      console.log("Usuario seleccionado:", currentUser?.id, currentUser?.nombre);
+
       const { data: usuarios } = await supabase
         .from("usuarios")
         .select("*")
         .order("nombre");
+
+      console.log(
+        "Usuarios de DB:",
+        usuarios?.map((u) => ({ id: u.id, nombre: u.nombre }))
+      );
 
       const { data: peliculas } = await supabase
         .from("peliculas")
@@ -62,6 +67,7 @@ export default function App() {
 
       let notifs = [];
       if (currentUser?.id) {
+        console.log("Cargando notificaciones para usuario:", currentUser.id);
         const { data: notifData, error } = await supabase
           .from("notificaciones")
           .select("*")
@@ -71,8 +77,11 @@ export default function App() {
         if (error) {
           console.error("Error al cargar notificaciones:", error);
         } else {
+          console.log("Notificaciones obtenidas:", notifData);
           notifs = notifData || [];
         }
+      } else {
+        console.log("No hay usuario seleccionado, no se cargan notificaciones");
       }
 
       setUsers(usuarios || []);
@@ -80,37 +89,17 @@ export default function App() {
       setNotifications(notifs);
 
       if (!currentUser && usuarios?.length > 0) {
+        console.log("Estableciendo usuario por defecto:", usuarios[0].id, usuarios[0].nombre);
         setCurrentUser(usuarios[0]);
       }
+
+      console.log("Usuario actual final:", currentUser?.id);
+      console.log("Películas cargadas:", normalized.length);
+      console.log("Notificaciones cargadas:", notifs.length);
     } catch (error) {
       console.error("Error en fetchAll:", error);
     }
   }
-
-  // Función para filtrar películas
-  const filteredMovies = () => {
-    let filtered = [...movies];
-
-    // Filtro: Vistas y no vistas
-    if (filterViewStatus !== 'all' && currentUser?.id) {
-      filtered = filtered.filter((m) => {
-        const vista = m.vistas.find((v) => v.usuario_id === currentUser.id);
-        if (filterViewStatus === 'vista') {
-          return vista && vista.estado === 'vista';
-        } else if (filterViewStatus === 'no vista') {
-          return !vista || vista.estado === 'no vista';
-        }
-        return true;
-      });
-    }
-
-    return filtered;
-  };
-
-  // Resetear filtros
-  const resetFilters = () => {
-    setFilterViewStatus('all');
-  };
 
   async function addMovie(payload) {
     try {
@@ -184,6 +173,7 @@ export default function App() {
         .eq("id", notifId);
       if (error) throw error;
       setNotifications((prev) => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
+      console.log("Notificación marcada como leída:", notifId);
     } catch (error) {
       console.error("Error al marcar notificación como leída:", error);
     }
@@ -326,38 +316,10 @@ export default function App() {
             </div>
           </div>
         </section>
-
-        {/* Sección de filtros con diseño mejorado */}
-        <section className="mb-6 bg-gradient-to-r from-gray-100 to-white p-5 rounded-xl shadow-lg border border-gray-200">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            {/* Filtro Vistas y no vistas */}
-            <div className="w-full md:w-auto">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Filtrar por vistas</label>
-              <select
-                value={filterViewStatus}
-                onChange={(e) => setFilterViewStatus(e.target.value)}
-                className="w-full md:w-48 p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-200"
-              >
-                <option value="all">Todas</option>
-                <option value="vista">Vistas</option>
-                <option value="no vista">No vistas</option>
-              </select>
-            </div>
-
-            {/* Botón de reset con diseño mejorado */}
-            <button
-              onClick={resetFilters}
-              className="mt-4 md:mt-0 w-full md:w-auto px-6 py-2.5 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-200"
-            >
-              Limpiar filtros
-            </button>
-          </div>
-        </section>
-
         <section className="mb-8">
           {currentUser ? (
             <MovieGrid
-              movies={filteredMovies()} // Pasar películas filtradas
+              movies={movies}
               currentUser={currentUser}
               toggleView={toggleView}
               onDelete={deleteMovie}
