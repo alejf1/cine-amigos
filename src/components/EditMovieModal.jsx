@@ -7,18 +7,23 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
   const [genero, setGenero] = useState("");
   const [anio, setAnio] = useState("");
   const [poster, setPoster] = useState("");
+  const [sinopsis, setSinopsis] = useState("");
+  const [duracion, setDuracion] = useState(0);
+  const [director, setDirector] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
 
-  const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting);
+  const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting, setIsSelecting);
 
-  // Pre-cargar datos cuando se abre el modal
   useEffect(() => {
     if (open && movie) {
       setTitulo(movie.titulo || "");
       setGenero(movie.genero || "");
       setAnio(movie.anio ? movie.anio.toString() : "");
       setPoster(movie.poster || "");
+      setSinopsis(movie.sinopsis || "");
+      setDuracion(movie.duracion || 0);
+      setDirector(movie.director || "");
       setIsSelecting(false);
     }
   }, [open, movie]);
@@ -29,10 +34,14 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
     setLoading(true);
     
     const updatedData = {
+      id: movie.id,
       titulo,
       genero,
       anio: anio ? parseInt(anio) : null,
-      poster
+      poster,
+      sinopsis,
+      duracion,
+      director
     };
     
     const ok = await updateMovie(movie.id, updatedData);
@@ -40,6 +49,7 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
     
     if (ok) {
       setTitulo(""); setGenero(""); setAnio(""); setPoster("");
+      setSinopsis(""); setDuracion(0); setDirector("");
       setIsSelecting(false);
       setOpen(false);
     } else {
@@ -97,7 +107,7 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
                             </div>
                             <button 
                               type="button" 
-                              onClick={() => handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting)} 
+                              onClick={() => handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting, setSinopsis, setDuracion, setDirector)} 
                               className="text-blue-600 hover:text-blue-800 text-sm"
                               disabled={isSelecting}
                             >
@@ -134,6 +144,25 @@ export default function EditMovieModal({ open, setOpen, movie, updateMovie }) {
                   onChange={e => setPoster(e.target.value)} 
                   placeholder="Poster (se autocompletará)" 
                   className="w-full border p-2 rounded" 
+                />
+                <textarea
+                  value={sinopsis}
+                  onChange={e => setSinopsis(e.target.value)}
+                  placeholder="Sinopsis (se autocompletará)"
+                  className="w-full border p-2 rounded h-24"
+                />
+                <input
+                  value={duracion}
+                  onChange={e => setDuracion(parseInt(e.target.value) || 0)}
+                  placeholder="Duración en minutos (se autocompletará)"
+                  className="w-full border p-2 rounded"
+                  type="number"
+                />
+                <input
+                  value={director}
+                  onChange={e => setDirector(e.target.value)}
+                  placeholder="Director (se autocompletará)"
+                  className="w-full border p-2 rounded"
                 />
                 <div className="flex justify-end gap-2">
                   <button 
