@@ -8,9 +8,12 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
   const [genero, setGenero] = useState("");
   const [anio, setAnio] = useState("");
   const [poster, setPoster] = useState("");
+  const [sinopsis, setSinopsis] = useState("");
+  const [duracion, setDuracion] = useState(0);
+  const [director, setDirector] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
-  const [viewStatus, setViewStatus] = useState("vista"); // Por defecto "vista"
+  const [viewStatus, setViewStatus] = useState("vista");
   const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting, setIsSelecting);
 
   async function handleSubmit(e) {
@@ -23,8 +26,10 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
       genero,
       anio: anio ? parseInt(anio) : null,
       poster,
-      // ← NUEVO: Incluir el estado de vista
-      vistaEstado: viewStatus
+      vistaEstado: viewStatus,
+      sinopsis,
+      duracion,
+      director
     });
 
     setLoading(false);
@@ -33,7 +38,10 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
       setGenero("");
       setAnio("");
       setPoster("");
-      setViewStatus("vista"); // ← RESET
+      setSinopsis("");
+      setDuracion(0);
+      setDirector("");
+      setViewStatus("vista");
       setIsSelecting(false);
       setOpen(false);
     } else {
@@ -92,7 +100,7 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                             <button
                               type="button"
                               onClick={() => {
-                                handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting);
+                                handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting, setSinopsis, setDuracion, setDirector);
                               }}
                               className="text-blue-600 hover:text-blue-800 text-sm"
                               disabled={isSelecting}
@@ -131,6 +139,25 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                   placeholder="Poster (se autocompletará)"
                   className="w-full border p-2 rounded"
                 />
+                <textarea
+                  value={sinopsis}
+                  onChange={e => setSinopsis(e.target.value)}
+                  placeholder="Sinopsis (se autocompletará)"
+                  className="w-full border p-2 rounded h-24"
+                />
+                <input
+                  value={duracion}
+                  onChange={e => setDuracion(parseInt(e.target.value) || 0)}
+                  placeholder="Duración en minutos (se autocompletará)"
+                  className="w-full border p-2 rounded"
+                  type="number"
+                />
+                <input
+                  value={director}
+                  onChange={e => setDirector(e.target.value)}
+                  placeholder="Director (se autocompletará)"
+                  className="w-full border p-2 rounded"
+                />
                 <div className="space-y-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ¿Ya la viste?
@@ -139,20 +166,18 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                     <button
                       type="button"
                       onClick={() => setViewStatus("vista")}
-                      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${viewStatus === "vista"
-                          ? "bg-green-600 text-white"
-                          : "bg-gray-100 hover:bg-gray-200"
-                        }`}
+                      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
+                        viewStatus === "vista" ? "bg-green-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                      }`}
                     >
                       <EyeIcon className="w-4 h-4" /> Sí, la vi
                     </button>
                     <button
                       type="button"
                       onClick={() => setViewStatus("no vista")}
-                      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${viewStatus === "no vista"
-                          ? "bg-red-500 text-white"
-                          : "bg-gray-100 hover:bg-gray-200"
-                        }`}
+                      className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
+                        viewStatus === "no vista" ? "bg-red-500 text-white" : "bg-gray-100 hover:bg-gray-200"
+                      }`}
                     >
                       <EyeSlashIcon className="w-4 h-4" /> No la vi
                     </button>
@@ -172,5 +197,3 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
     </Transition.Root>
   );
 }
-
-
