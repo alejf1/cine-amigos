@@ -1,13 +1,14 @@
 import { motion } from "framer-motion";
 import { TrashIcon, EyeIcon, EyeSlashIcon, PencilIcon, StarIcon } from "@heroicons/react/24/outline";
+import { useState } from "react";
 
 export default function MovieCard({ movie, currentUser, toggleView, onDelete, onEdit, updateRating }) {
   const vistasCount = (movie.vistas || []).filter(v => v.estado === "vista").length;
-  const vistaUsuario = movie.vistas?.find(v => v.usuario_id === currentUser?.id)?.estado;
+  const vistaUsuario = movie.vistas?.find(v => v.usuario_id === currentUser?.id)?.estado || "no vista"; // ← MODIFICADO: Valor por defecto
   const userRating = movie.ratings?.find(r => r.usuario_id === currentUser?.id)?.rating;
   const isOwner = movie.agregado_por === currentUser?.id;
+  const [showDetails, setShowDetails] = useState(false);
 
-  // estilos visuales: si lo viste -> highlight verde; si nadie lo vio -> borde llamativo
   const cardBg =
     vistaUsuario === "vista"
       ? "ring-2 ring-green-200"
@@ -15,7 +16,6 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
       ? "ring-2 ring-yellow-100"
       : "bg-white";
 
-  // Función para actualizar rating (solo si vio la película)
   const handleRating = async (rating) => {
     if (vistaUsuario !== "vista") {
       alert("¡Primero tenés que marcar que viste la película para poder calificarla! 😊");
@@ -40,7 +40,6 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
     }
   };
 
-  // Calcular promedio de ratings
   const ratings = movie.ratings || [];
   const ratingsCount = ratings.length;
   const averageRating = ratingsCount >= 2 ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratingsCount).toFixed(1) : 0;
@@ -53,14 +52,30 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
       exit={{ opacity: 0, y: 8 }}
       className={`relative rounded-xl overflow-hidden shadow-md ${cardBg}`}
     >
-      {/* Poster: si no hay poster, fondo placeholder */}
-      <div className="aspect-[2/3] bg-gray-200 flex items-end">
+      <div
+        className="aspect-[2/3] bg-gray-200 flex items-end cursor-pointer relative"
+        onClick={() => setShowDetails(!showDetails)}
+      >
         {movie.poster ? (
           <img src={movie.poster} alt={movie.titulo} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-500 font-semibold">
             {movie.titulo}
           </div>
+        )}
+        {showDetails && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="absolute inset-0 bg-black/80 text-white p-4 flex flex-col justify-center overflow-auto rounded-xl"
+          >
+            <h4 className="font-bold mb-2">Detalles</h4>
+            <p className="text-sm mb-2"><strong>Director:</strong> {movie.director || 'Desconocido'}</p>
+            <p className="text-sm mb-2"><strong>Duración:</strong> {movie.duracion ? `${movie.duracion} min` : 'N/A'}</p>
+            <p className="text-sm"><strong>Sinopsis:</strong> {movie.sinopsis || 'Sin sinopsis disponible'}</p>
+          </motion.div>
         )}
       </div>
 
@@ -81,20 +96,22 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
 
         <div className="mt-3 flex gap-2">
           <button
-            onClick={() => toggleView(movie.id, currentUser.id, "vista")}
+            onClick={() => toggleView(movie.id, currentUser?.id, "vista")}
+            disabled={!currentUser}
             className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
               vistaUsuario === "vista" ? "bg-green-600 text-white" : "bg-gray-100"
-            }`}
+            } ${!currentUser ? "opacity-50 cursor-not-allowed" : ""}`}
             title="Marcar como vista"
           >
             <EyeIcon className="w-4 h-4" /> Vi
           </button>
 
           <button
-            onClick={() => toggleView(movie.id, currentUser.id, "no vista")}
+            onClick={() => toggleView(movie.id, currentUser?.id, "no vista")}
+            disabled={!currentUser}
             className={`flex-1 py-2 rounded-md text-sm flex items-center justify-center gap-2 ${
               vistaUsuario === "no vista" ? "bg-red-500 text-white" : "bg-gray-100"
-            }`}
+            } ${!currentUser ? "opacity-50 cursor-not-allowed" : ""}`}
             title="Marcar como no vista"
           >
             <EyeSlashIcon className="w-4 h-4" /> No vi
@@ -102,7 +119,6 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
         </div>
 
         <div className="mt-2 space-y-2">
-          {/* PRIMERA FILA: Botones de acción si es dueño */}
           <div className="flex justify-center items-center gap-2">
             {isOwner ? (
               <>
@@ -124,7 +140,6 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
             ) : null}
           </div>
 
-          {/* SEGUNDA FILA: Estrellas personales */}
           <div className="flex justify-center items-center pb-1">
             <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -171,7 +186,6 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
             </div>
           </div>
 
-          {/* TERCERA FILA: Promedio grupal (solo si hay 2+ ratings) */}
           {ratingsCount >= 2 && (
             <div className="flex justify-center items-center text-xs text-gray-500">
               <div className="flex items-center gap-1">
@@ -185,5 +199,3 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
     </motion.div>
   );
 }
-
-
