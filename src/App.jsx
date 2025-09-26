@@ -23,14 +23,14 @@ export default function App({ preselectedUser }) {
     fetchAll();
   }, []);
 
-  // Suscripción a notificaciones en tiempo real
+  // Suscripción a notificaciones
   useEffect(() => {
     if (currentUser?.id) {
-      const channel = supabase.channel('notifs-changes')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notificaciones',
+      const channel = supabase.channel("notifs-changes")
+        .on("postgres_changes", {
+          event: "INSERT",
+          schema: "public",
+          table: "notificaciones",
           filter: `usuario_id=eq.${currentUser.id}`
         }, (payload) => {
           setNotifications(prev => [payload.new, ...prev]);
@@ -247,9 +247,7 @@ export default function App({ preselectedUser }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
-        users={users}
-        currentUser={currentUser}
-        setCurrentUser={setCurrentUser}
+        currentUser={currentUser}   // 👈 solo mostramos el usuario fijo
         onOpenAdd={() => setIsAddModalOpen(true)}
         notifications={notifications}
         markAsRead={markAsRead}
