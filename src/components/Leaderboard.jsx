@@ -37,7 +37,7 @@ export default function Leaderboard({ users, movies }) {
           <li key={u.id} className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : u.nombre.charAt(0)}
+                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : idx == 3 ? "🎬" : u.nombre.charAt(0)}
               </div>
               <div>
                 <div className="font-semibold">{u.nombre}</div>
@@ -58,4 +58,5 @@ export default function Leaderboard({ users, movies }) {
     </div>
   );
 }
+
 
