@@ -1,4 +1,3 @@
-// NotificationsDropdown.jsx
 import { useState } from "react";
 import { BellIcon } from "@heroicons/react/24/outline";
 
@@ -21,7 +20,7 @@ export default function NotificationsDropdown({ notifications, markAsRead }) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 bg-white border rounded-md shadow-md overflow-hidden">
+        <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-72 max-w-[90vw] bg-white border rounded-md shadow-md overflow-hidden z-50">
           <div className="max-h-64 overflow-y-auto">
             {notifications.length > 0 ? (
               notifications.map((n) => (
@@ -29,7 +28,7 @@ export default function NotificationsDropdown({ notifications, markAsRead }) {
                   key={n.id}
                   className={`px-4 py-2 ${n.leida ? "bg-gray-50" : "bg-white"} hover:bg-gray-100`}
                 >
-                  <p className="text-sm">{n.mensaje}</p>
+                  <p className="text-sm break-words">{n.mensaje}</p>
                   {!n.leida && (
                     <button
                       onClick={() => markAsRead(n.id)}
