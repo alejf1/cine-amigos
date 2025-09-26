@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function MovieCard({ movie, currentUser, toggleView, onDelete, onEdit, updateRating }) {
   const vistasCount = (movie.vistas || []).filter(v => v.estado === "vista").length;
-  const vistaUsuario = movie.vistas?.find(v => v.usuario_id === currentUser?.id)?.estado || "no vista"; // ← MODIFICADO: Valor por defecto
+  const vistaUsuario = movie.vistas?.find(v => v.usuario_id === currentUser?.id)?.estado || "no vista";
   const userRating = movie.ratings?.find(r => r.usuario_id === currentUser?.id)?.rating;
   const isOwner = movie.agregado_por === currentUser?.id;
   const [showDetails, setShowDetails] = useState(false);
@@ -69,12 +69,24 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="absolute inset-0 bg-black/80 text-white p-4 flex flex-col justify-center overflow-auto rounded-xl"
+            className="absolute inset-0 bg-black/90 text-white flex flex-col rounded-xl"
           >
-            <h4 className="font-bold mb-2">Detalles</h4>
-            <p className="text-sm mb-2"><strong>Director:</strong> {movie.director || 'Desconocido'}</p>
-            <p className="text-sm mb-2"><strong>Duración:</strong> {movie.duracion ? `${movie.duracion} min` : 'N/A'}</p>
-            <p className="text-sm"><strong>Sinopsis:</strong> {movie.sinopsis || 'Sin sinopsis disponible'}</p>
+            {/* Sección fija: Título, Director, Duración */}
+            <div className="p-3 sm:p-4 bg-black/95 border-b border-gray-700">
+              <h4 className="text-lg font-bold">Detalles</h4>
+              <p className="text-sm mt-1">
+                <strong>Director:</strong> {movie.director || 'Desconocido'}
+              </p>
+              <p className="text-sm">
+                <strong>Duración:</strong> {movie.duracion ? `${movie.duracion} min` : 'N/A'}
+              </p>
+            </div>
+            {/* Sección con scroll: Sinopsis */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+              <p className="text-sm">
+                <strong>Sinopsis:</strong> {movie.sinopsis || 'Sin sinopsis disponible'}
+              </p>
+            </div>
           </motion.div>
         )}
       </div>
