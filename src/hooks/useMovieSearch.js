@@ -56,22 +56,32 @@ export function useMovieSearch(titulo, isSelecting = false, setIsSelecting) {
     return () => clearTimeout(timeoutId);
   }, [titulo, isSelecting]);
 
-  const handleSuggestionSelect = async (suggestion, setTitulo, setGenero, setAnio, setPoster, setIsSelecting, setSinopsis, setDuracion, setDirector) => {
-    const isSpanish = suggestion.original_title?.toLowerCase() !== suggestion.title?.toLowerCase();
-    const displayTitle = isSpanish ? suggestion.title : suggestion.original_title || suggestion.title;
-   
+  const handleSuggestionSelect = async (
+    suggestion,
+    setTitulo,
+    setGenero,
+    setAnio,
+    setPoster,
+    setIsSelecting,
+    setSinopsis,
+    setDuracion,
+    setDirector
+  ) => {
+    // ✅ Siempre mostrar el título en inglés
+    const displayTitle = suggestion.original_title || suggestion.title;
+
     setIsSelecting(true);
     setSuggestions([]);
 
     setTitulo(displayTitle);
     setGenero(suggestion.genre_ids?.map(getGenreName).join(', ') || '');
     setAnio(suggestion.release_date ? suggestion.release_date.split('-')[0] : '');
-    setPoster(suggestion.poster_path ? `https://image.tmdb.org/t/p/w500${suggestion.poster_path}` : '');
 
     try {
       const apiKey = import.meta.env.VITE_TMDB_API_KEY;
       const movieId = suggestion.id;
 
+      // ✅ Detalles en español
       const detailsResponse = await fetch(
         `https://api.themoviedb.org/3/movie/${movieId}?api_key=${apiKey}&language=es-ES`
       );
@@ -79,16 +89,32 @@ export function useMovieSearch(titulo, isSelecting = false, setIsSelecting) {
       setSinopsis(details.overview || 'Sin sinopsis disponible');
       setDuracion(details.runtime || 0);
 
+      // ✅ Buscar el poster "original" o en inglés
+      const imagesResponse = await fetch(
+        `https://api.themoviedb.org/3/movie/${movieId}/images?api_key=${apiKey}`
+      );
+      const images = await imagesResponse.json();
+
+      const posterPath =
+        images.posters.find(p => p.iso_639_1 === "en")?.file_path ||
+        images.posters.find(p => p.iso_639_1 === null)?.file_path ||
+        images.posters[0]?.file_path;
+
+      setPoster(posterPath ? `https://image.tmdb.org/t/p/w500${posterPath}` : "");
+
+      // ✅ Director en español
       const creditsResponse = await fetch(
         `https://api.themoviedb.org/3/movie/${movieId}/credits?api_key=${apiKey}&language=es-ES`
       );
       const credits = await creditsResponse.json();
       const director = credits.crew?.find(person => person.job === 'Director')?.name || 'Desconocido';
       setDirector(director);
+
     } catch (error) {
       console.error('Error fetching detalles de película:', error);
       setSinopsis('Sin sinopsis disponible');
       setDuracion(0);
+      setPoster('');
       setDirector('Desconocido');
     }
   };
