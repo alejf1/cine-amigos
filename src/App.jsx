@@ -6,6 +6,7 @@ import AddMovieModal from "./components/AddMovieModal";
 import EditMovieModal from "./components/EditMovieModal";
 import UserStats from "./components/UserStats";
 import Leaderboard from "./components/Leaderboard";
+import RatingReminderModal from "./components/RatingReminderModal"; // ← NUEVO
 
 export default function App({ preselectedUser }) {
   const [users, setUsers] = useState([]);
@@ -17,12 +18,34 @@ export default function App({ preselectedUser }) {
   const [movieToEdit, setMovieToEdit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState("all"); // Nuevo estado para el filtro: 'all', 'seen', 'unseen'
+  const [filter, setFilter] = useState("all"); // 'all', 'seen', 'unseen'
+  const [showReminder, setShowReminder] = useState(false); // Para modal
+  const [pendingRatings, setPendingRatings] = useState([]); // Películas sin calificar
 
   // Carga inicial
   useEffect(() => {
     fetchAll();
   }, []);
+
+  // Revisa si hay películas vistas pero sin calificación
+  useEffect(() => {
+    if (currentUser && movies.length > 0) {
+      const pendientes = movies.filter((m) => {
+        const vista = m.vistas?.find(
+          (v) => v.usuario_id === currentUser.id && v.estado === "vista"
+        );
+        const rating = m.ratings?.find((r) => r.usuario_id === currentUser.id);
+        return vista && !rating;
+      });
+      if (pendientes.length > 0) {
+        setPendingRatings(pendientes);
+        setShowReminder(true);
+      } else {
+        setPendingRatings([]);
+        setShowReminder(false);
+      }
+    }
+  }, [currentUser, movies]);
 
   // Suscripción a notificaciones en tiempo real
   useEffect(() => {
@@ -112,7 +135,9 @@ export default function App({ preselectedUser }) {
     return true; // 'all'
   });
 
+  // -------------------------------
   // Funciones principales
+  // -------------------------------
   async function addMovie(payload) {
     if (!currentUser?.id) return false;
     try {
@@ -278,25 +303,29 @@ export default function App({ preselectedUser }) {
     }
   }
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Cargando datos...
-      </div>
-    );
-  if (error)
-    return (
-      <div className="min-h-screen flex items-center justify-center flex-col">
-        <p className="text-red-500">{error}</p>
-        <button
-          onClick={fetchAll}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Reintentar
-        </button>
-      </div>
-    );
+  // ----------------------------------------
+  // Para mostrar modal de pendientes de calificar
+  // ----------------------------------------
 
+  // Para control de botones mientras se guarda rating rápido
+  const [savingRatings, setSavingRatings] = useState({}); // { [movieId]: true }
+  const handleQuickRate = async (movieId, rating) => {
+    if (!currentUser?.id) return;
+    setSavingRatings((s) => ({ ...s, [movieId]: true }));
+    try {
+      await updateRating(movieId, currentUser.id, rating);
+    } finally {
+      setSavingRatings((s) => {
+        const copy = { ...s };
+        delete copy[movieId];
+        return copy;
+      });
+    }
+  };
+
+  // ----------------------------------------
+  // Render
+  // ----------------------------------------
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -335,6 +364,8 @@ export default function App({ preselectedUser }) {
             </div>
             <UserStats user={currentUser} movies={movies} />
           </div>
+
+          {/* Filtros */}
           <div className="mt-4 flex gap-2 justify-center md:justify-start">
             <button
               onClick={() => setFilter("all")}
@@ -368,6 +399,7 @@ export default function App({ preselectedUser }) {
             </button>
           </div>
         </section>
+
         <section className="mb-8">
           {currentUser ? (
             <MovieGrid
@@ -400,6 +432,15 @@ export default function App({ preselectedUser }) {
         setOpen={setIsEditModalOpen}
         movie={movieToEdit}
         updateMovie={updateMovie}
+      />
+
+      {/* Modal de recordatorio de calificación */}
+      <RatingReminderModal
+        open={showReminder}
+        onClose={() => setShowReminder(false)}
+        movies={pendingRatings}
+        userId={currentUser?.id}
+        updateRating={handleQuickRate} // usa handleQuickRate con control de botones
       />
     </div>
   );
