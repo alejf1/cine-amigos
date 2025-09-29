@@ -8,6 +8,7 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
   const userRating = movie.ratings?.find(r => r.usuario_id === currentUser?.id)?.rating;
   const isOwner = movie.agregado_por === currentUser?.id;
   const [showDetails, setShowDetails] = useState(false);
+  const [showRatingsModal, setShowRatingsModal] = useState(false); // 👈 nuevo estado
 
   const cardBg =
     vistaUsuario === "vista"
@@ -203,11 +204,42 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
               <div className="flex items-center gap-1">
                 <StarIcon className="w-3 h-3 text-yellow-400 fill-current" />
                 <span>Promedio: {averageRating} ({ratingsCount} calif.)</span>
+                <button
+                  onClick={() => setShowRatingsModal(true)}
+                  className="ml-2 text-blue-600 hover:underline"
+                >
+                  ver
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal de calificaciones */}
+      {showRatingsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg p-4 w-full max-w-sm">
+            <h3 className="text-lg font-semibold mb-3">Calificaciones</h3>
+            <ul className="space-y-1 text-sm max-h-64 overflow-y-auto pr-1">
+              {ratings.map((r) => (
+                <li key={r.usuario_id} className="flex justify-between">
+                  <span>{r.usuarios?.nombre || "Anónimo"}</span>
+                  <span>{r.rating} ⭐</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowRatingsModal(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
