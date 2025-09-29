@@ -193,7 +193,7 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
               
               {userRating > 0 && (
                 <span className="text-xs text-gray-600 font-medium ml-1">
-                  (Tu: {userRating})
+                  ({userRating})
                 </span>
               )}
             </div>
@@ -203,12 +203,12 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
             <div className="flex justify-center items-center text-xs text-gray-500">
               <div className="flex items-center gap-1">
                 <StarIcon className="w-3 h-3 text-yellow-400 fill-current" />
-                <span>Promedio: {averageRating} ({ratingsCount} calif.)</span>
+                <span>Promedio: {averageRating} ({ratingsCount})</span>
                 <button
                   onClick={() => setShowRatingsModal(true)}
                   className="ml-2 text-blue-600 hover:underline"
                 >
-                  ver
+                  Ver
                 </button>
               </div>
             </div>
