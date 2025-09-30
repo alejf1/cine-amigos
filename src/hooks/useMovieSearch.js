@@ -42,7 +42,7 @@ export function useMovieSearch(titulo, isSelecting = false, setIsSelecting) {
               esMovie.title.toLowerCase() === enMovie.title.toLowerCase()
             )
           )
-        ].slice(0, 10);
+        ].slice(0, 5);
 
         setSuggestions(combined);
       } catch (error) {
