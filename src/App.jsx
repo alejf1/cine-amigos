@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 import Navbar from "./components/Navbar";
 import MovieGrid from "./components/MovieGrid";
@@ -6,7 +6,8 @@ import AddMovieModal from "./components/AddMovieModal";
 import EditMovieModal from "./components/EditMovieModal";
 import UserStats from "./components/UserStats";
 import Leaderboard from "./components/Leaderboard";
-import RatingReminderModal from "./components/RatingReminderModal"; // ← NUEVO
+import RatingReminderModal from "./components/RatingReminderModal";
+import ChatPanel from "./components/ChatPanel";
 
 export default function App({ preselectedUser }) {
   const [users, setUsers] = useState([]);
@@ -19,8 +20,17 @@ export default function App({ preselectedUser }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all"); // 'all', 'seen', 'unseen'
-  const [showReminder, setShowReminder] = useState(false); // Para modal
-  const [pendingRatings, setPendingRatings] = useState([]); // Películas sin calificar
+  const [showReminder, setShowReminder] = useState(false);
+  const [pendingRatings, setPendingRatings] = useState([]);
+
+  // Memoizar currentUser y users para estabilidad
+  const memoizedCurrentUser = useMemo(() => currentUser, [currentUser?.id]);
+  const memoizedUsers = useMemo(() => users, [users?.length]);
+
+  // Log para depurar cambios en props
+  useEffect(() => {
+    console.log("App.jsx: currentUser:", memoizedCurrentUser, "users:", memoizedUsers);
+  }, [memoizedCurrentUser, memoizedUsers]);
 
   // Carga inicial
   useEffect(() => {
@@ -29,12 +39,12 @@ export default function App({ preselectedUser }) {
 
   // Revisa si hay películas vistas pero sin calificación
   useEffect(() => {
-    if (currentUser && movies.length > 0) {
+    if (memoizedCurrentUser && movies.length > 0) {
       const pendientes = movies.filter((m) => {
         const vista = m.vistas?.find(
-          (v) => v.usuario_id === currentUser.id && v.estado === "vista"
+          (v) => v.usuario_id === memoizedCurrentUser.id && v.estado === "vista"
         );
-        const rating = m.ratings?.find((r) => r.usuario_id === currentUser.id);
+        const rating = m.ratings?.find((r) => r.usuario_id === memoizedCurrentUser.id);
         return vista && !rating;
       });
       if (pendientes.length > 0) {
@@ -45,11 +55,11 @@ export default function App({ preselectedUser }) {
         setShowReminder(false);
       }
     }
-  }, [currentUser, movies]);
+  }, [memoizedCurrentUser, movies]);
 
   // Suscripción a notificaciones en tiempo real
   useEffect(() => {
-    if (currentUser?.id) {
+    if (memoizedCurrentUser?.id) {
       const channel = supabase
         .channel("notifs-changes")
         .on(
@@ -58,18 +68,21 @@ export default function App({ preselectedUser }) {
             event: "INSERT",
             schema: "public",
             table: "notificaciones",
-            filter: `usuario_id=eq.${currentUser.id}`,
+            filter: `usuario_id=eq.${memoizedCurrentUser.id}`,
           },
           (payload) => {
+            console.log("New notification received:", payload.new);
             setNotifications((prev) => [payload.new, ...prev]);
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log("Notifs subscription status:", status);
+        });
       return () => supabase.removeChannel(channel);
     } else {
       setNotifications([]);
     }
-  }, [currentUser]);
+  }, [memoizedCurrentUser]);
 
   // Función para cargar todos los datos
   async function fetchAll() {
@@ -79,7 +92,7 @@ export default function App({ preselectedUser }) {
 
       const { data: usuarios, error: userError } = await supabase
         .from("usuarios")
-        .select("*")
+        .select("*, chat_habilitado")
         .order("nombre");
       if (userError) throw userError;
 
@@ -99,11 +112,11 @@ export default function App({ preselectedUser }) {
         })) || [];
 
       let notifs = [];
-      if (currentUser?.id) {
+      if (memoizedCurrentUser?.id) {
         const { data: notifData, error: notifError } = await supabase
           .from("notificaciones")
           .select("*")
-          .eq("usuario_id", currentUser.id)
+          .eq("usuario_id", memoizedCurrentUser.id)
           .order("created_at", { ascending: false })
           .limit(20);
         if (notifError) throw notifError;
@@ -114,7 +127,7 @@ export default function App({ preselectedUser }) {
       setMovies(normalizedMovies);
       setNotifications(notifs);
 
-      if (!currentUser && usuarios?.length > 0) {
+      if (!memoizedCurrentUser && usuarios?.length > 0) {
         setCurrentUser(usuarios[0]);
       }
     } catch (err) {
@@ -128,25 +141,23 @@ export default function App({ preselectedUser }) {
   // Filtrar películas según el estado de vista del usuario actual
   const filteredMovies = movies.filter((movie) => {
     const vistaUsuario = movie.vistas?.find(
-      (v) => v.usuario_id === currentUser?.id
+      (v) => v.usuario_id === memoizedCurrentUser?.id
     )?.estado;
     if (filter === "seen") return vistaUsuario === "vista";
     if (filter === "unseen") return vistaUsuario !== "vista";
     return true; // 'all'
   });
 
-  // -------------------------------
   // Funciones principales
-  // -------------------------------
   async function addMovie(payload) {
-    if (!currentUser?.id) return false;
+    if (!memoizedCurrentUser?.id) return false;
     try {
       const moviePayload = {
         titulo: payload.titulo,
         genero: payload.genero,
         anio: payload.anio,
         poster: payload.poster,
-        agregado_por: currentUser.id,
+        agregado_por: memoizedCurrentUser.id,
         sinopsis: payload.sinopsis,
         duracion: payload.duracion,
         director: payload.director,
@@ -166,7 +177,7 @@ export default function App({ preselectedUser }) {
           .from("vistas")
           .insert([
             {
-              usuario_id: currentUser.id,
+              usuario_id: memoizedCurrentUser.id,
               pelicula_id: movieData.id,
               estado: payload.vistaEstado,
             },
@@ -219,13 +230,13 @@ export default function App({ preselectedUser }) {
   }
 
   async function deleteMovie(movieId) {
-    if (!currentUser?.id) return;
+    if (!memoizedCurrentUser?.id) return;
     try {
       const { error } = await supabase
         .from("peliculas")
         .delete()
         .eq("id", movieId)
-        .eq("agregado_por", currentUser.id);
+        .eq("agregado_por", memoizedCurrentUser.id);
       if (error) throw error;
       setMovies((prev) => prev.filter((m) => m.id !== movieId));
     } catch (err) {
@@ -234,7 +245,7 @@ export default function App({ preselectedUser }) {
   }
 
   async function updateMovie(movieId, updatedMovie) {
-    if (!currentUser?.id) return false;
+    if (!memoizedCurrentUser?.id) return false;
     try {
       const { error } = await supabase
         .from("peliculas")
@@ -248,7 +259,7 @@ export default function App({ preselectedUser }) {
           director: updatedMovie.director,
         })
         .eq("id", movieId)
-        .eq("agregado_por", currentUser.id);
+        .eq("agregado_por", memoizedCurrentUser.id);
       if (error) throw error;
       setMovies((prev) =>
         prev.map((m) => (m.id === movieId ? { ...m, ...updatedMovie } : m))
@@ -287,13 +298,13 @@ export default function App({ preselectedUser }) {
   }
 
   async function markAsRead(notificationId) {
-    if (!currentUser?.id) return;
+    if (!memoizedCurrentUser?.id) return;
     try {
       await supabase
         .from("notificaciones")
         .update({ leida: true })
         .eq("id", notificationId)
-        .eq("usuario_id", currentUser.id);
+        .eq("usuario_id", memoizedCurrentUser.id);
 
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, leida: true } : n))
@@ -303,17 +314,12 @@ export default function App({ preselectedUser }) {
     }
   }
 
-  // ----------------------------------------
-  // Para mostrar modal de pendientes de calificar
-  // ----------------------------------------
-
-  // Para control de botones mientras se guarda rating rápido
-  const [savingRatings, setSavingRatings] = useState({}); // { [movieId]: true }
+  const [savingRatings, setSavingRatings] = useState({});
   const handleQuickRate = async (movieId, rating) => {
-    if (!currentUser?.id) return;
+    if (!memoizedCurrentUser?.id) return;
     setSavingRatings((s) => ({ ...s, [movieId]: true }));
     try {
-      await updateRating(movieId, currentUser.id, rating);
+      await updateRating(movieId, memoizedCurrentUser.id, rating);
     } finally {
       setSavingRatings((s) => {
         const copy = { ...s };
@@ -323,9 +329,6 @@ export default function App({ preselectedUser }) {
     }
   };
 
-  // ----------------------------------------
-  // Render
-  // ----------------------------------------
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -348,7 +351,7 @@ export default function App({ preselectedUser }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
-        currentUser={currentUser}
+        currentUser={memoizedCurrentUser}
         onOpenAdd={() => setIsAddModalOpen(true)}
         notifications={notifications}
         markAsRead={markAsRead}
@@ -362,10 +365,9 @@ export default function App({ preselectedUser }) {
                 Explorá las recomendaciones de los pibes.
               </p>
             </div>
-            <UserStats user={currentUser} movies={movies} />
+            <UserStats user={memoizedCurrentUser} movies={movies} />
           </div>
 
-          {/* Filtros */}
           <div className="mt-4 flex gap-2 justify-center md:justify-start">
             <button
               onClick={() => setFilter("all")}
@@ -401,10 +403,10 @@ export default function App({ preselectedUser }) {
         </section>
 
         <section className="mb-8">
-          {currentUser ? (
+          {memoizedCurrentUser ? (
             <MovieGrid
               movies={filteredMovies}
-              currentUser={currentUser}
+              currentUser={memoizedCurrentUser}
               toggleView={toggleView}
               onDelete={deleteMovie}
               onEdit={(movie) => {
@@ -419,7 +421,7 @@ export default function App({ preselectedUser }) {
             </div>
           )}
         </section>
-        <Leaderboard users={users} movies={movies} />
+        <Leaderboard users={memoizedUsers} movies={movies} />
       </main>
 
       <AddMovieModal
@@ -434,14 +436,16 @@ export default function App({ preselectedUser }) {
         updateMovie={updateMovie}
       />
 
-      {/* Modal de recordatorio de calificación */}
       <RatingReminderModal
         open={showReminder}
         onClose={() => setShowReminder(false)}
         movies={pendingRatings}
-        userId={currentUser?.id}
-        updateRating={handleQuickRate} // usa handleQuickRate con control de botones
+        userId={memoizedCurrentUser?.id}
+        updateRating={handleQuickRate}
       />
+
+      {/* Chat panel siempre renderizado, pero condicionalmente visible */}
+      <ChatPanel currentUser={memoizedCurrentUser} users={memoizedUsers} />
     </div>
   );
 }
