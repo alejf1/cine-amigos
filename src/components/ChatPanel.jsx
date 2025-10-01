@@ -1,451 +1,257 @@
-import { useEffect, useState, useMemo } from "react";
-import { supabase } from "./supabaseClient";
-import Navbar from "./components/Navbar";
-import MovieGrid from "./components/MovieGrid";
-import AddMovieModal from "./components/AddMovieModal";
-import EditMovieModal from "./components/EditMovieModal";
-import UserStats from "./components/UserStats";
-import Leaderboard from "./components/Leaderboard";
-import RatingReminderModal from "./components/RatingReminderModal";
-import ChatPanel from "./components/ChatPanel";
+import { useEffect, useState, useRef } from "react";
+import { supabase } from "../supabaseClient";
+import { ChatBubbleLeftIcon, PaperAirplaneIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { motion } from "framer-motion";
 
-export default function App({ preselectedUser }) {
-  const [users, setUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(preselectedUser || null);
-  const [movies, setMovies] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [movieToEdit, setMovieToEdit] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filter, setFilter] = useState("all"); // 'all', 'seen', 'unseen'
-  const [showReminder, setShowReminder] = useState(false);
-  const [pendingRatings, setPendingRatings] = useState([]);
+export default function ChatPanel({ currentUser, users }) {
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const messagesEndRef = useRef(null);
+  const isOpenRef = useRef(isOpen);
 
-  // Memoizar currentUser y users para estabilidad
-  const memoizedCurrentUser = useMemo(() => currentUser, [currentUser?.id]);
-  const memoizedUsers = useMemo(() => users, [users?.length]);
+  // Clave para localStorage por usuario
+  const lastSeenKey = `lastSeenMessage_${currentUser?.id || "temp"}`;
 
-  // Log para depurar cambios en props
+  // Actualiza el ref cuando cambia isOpen
   useEffect(() => {
-    console.log("App.jsx: currentUser:", memoizedCurrentUser, "users:", memoizedUsers);
-  }, [memoizedCurrentUser, memoizedUsers]);
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
 
-  // Carga inicial
+  // =======================
+  // Cargar mensajes iniciales
+  // =======================
   useEffect(() => {
-    fetchAll();
-  }, []);
-
-  // Revisa si hay películas vistas pero sin calificación
-  useEffect(() => {
-    if (memoizedCurrentUser && movies.length > 0) {
-      const pendientes = movies.filter((m) => {
-        const vista = m.vistas?.find(
-          (v) => v.usuario_id === memoizedCurrentUser.id && v.estado === "vista"
-        );
-        const rating = m.ratings?.find((r) => r.usuario_id === memoizedCurrentUser.id);
-        return vista && !rating;
-      });
-      if (pendientes.length > 0) {
-        setPendingRatings(pendientes);
-        setShowReminder(true);
-      } else {
-        setPendingRatings([]);
-        setShowReminder(false);
-      }
+    if (isOpen && currentUser?.id) {
+      fetchMessages();
     }
-  }, [memoizedCurrentUser, movies]);
+  }, [isOpen, currentUser?.id]);
 
-  // Suscripción a notificaciones en tiempo real
+  async function fetchMessages() {
+    const { data, error } = await supabase
+      .from("mensajes")
+      .select("*, usuarios(nombre)")
+      .order("created_at", { ascending: true })
+      .limit(50);
+
+    if (error) {
+      console.error("Error fetching messages:", error);
+      return;
+    }
+
+    const msgs = data.map((msg) => ({
+      ...msg,
+      usuarios: { nombre: users.find((u) => u.id === msg.usuario_id)?.nombre || "Anónimo" },
+    }));
+
+    setMessages(msgs);
+
+    // Calcular no leídos usando localStorage
+    const lastSeenTime = localStorage.getItem(lastSeenKey);
+    const unread = lastSeenTime
+      ? msgs.filter(
+          (msg) =>
+            new Date(msg.created_at).getTime() > new Date(lastSeenTime).getTime() &&
+            msg.usuario_id !== currentUser.id
+        ).length
+      : msgs.filter((msg) => msg.usuario_id !== currentUser.id).length;
+
+    setUnreadCount(unread);
+  }
+
+  // =======================
+  // Suscripción Realtime
+  // =======================
   useEffect(() => {
-    if (memoizedCurrentUser?.id) {
-      const channel = supabase
-        .channel("notifs-changes")
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notificaciones",
-            filter: `usuario_id=eq.${memoizedCurrentUser.id}`,
-          },
-          (payload) => {
-            console.log("New notification received:", payload.new);
-            setNotifications((prev) => [payload.new, ...prev]);
+    if (!currentUser?.id) return;
+
+    const channel = supabase
+      .channel("chat-changes")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "mensajes" },
+        (payload) => {
+          console.log("Received realtime INSERT:", payload);
+          const sender = users.find((u) => u.id === payload.new.usuario_id);
+          const newMsg = { ...payload.new, usuarios: { nombre: sender?.nombre || "Anónimo" } };
+
+          setMessages((prev) => {
+            if (!prev.some((msg) => msg.id === newMsg.id)) {
+              return [...prev, newMsg];
+            }
+            return prev;
+          });
+
+          // Usa el ref para el valor actual
+          if (payload.new.usuario_id !== currentUser.id && !isOpenRef.current) {
+            setUnreadCount((prev) => prev + 1);
           }
-        )
-        .subscribe((status) => {
-          console.log("Notifs subscription status:", status);
-        });
-      return () => supabase.removeChannel(channel);
-    } else {
-      setNotifications([]);
-    }
-  }, [memoizedCurrentUser]);
-
-  // Función para cargar todos los datos
-  async function fetchAll() {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data: usuarios, error: userError } = await supabase
-        .from("usuarios")
-        .select("*, chat_habilitado")
-        .order("nombre");
-      if (userError) throw userError;
-
-      const { data: peliculas, error: movieError } = await supabase
-        .from("peliculas")
-        .select(
-          "*, vistas(*), ratings(*, usuarios(nombre)), sinopsis, duracion, director"
-        )
-        .order("titulo");
-      if (movieError) throw movieError;
-
-      const normalizedMovies =
-        peliculas?.map((p) => ({
-          ...p,
-          vistas: p.vistas || [],
-          ratings: p.ratings || [],
-        })) || [];
-
-      let notifs = [];
-      if (memoizedCurrentUser?.id) {
-        const { data: notifData, error: notifError } = await supabase
-          .from("notificaciones")
-          .select("*")
-          .eq("usuario_id", memoizedCurrentUser.id)
-          .order("created_at", { ascending: false })
-          .limit(20);
-        if (notifError) throw notifError;
-        notifs = notifData || [];
-      }
-
-      setUsers(usuarios || []);
-      setMovies(normalizedMovies);
-      setNotifications(notifs);
-
-      if (!memoizedCurrentUser && usuarios?.length > 0) {
-        setCurrentUser(usuarios[0]);
-      }
-    } catch (err) {
-      console.error("Error en fetchAll:", err);
-      setError("No se pudieron cargar los datos. Por favor, intentá de nuevo.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Filtrar películas según el estado de vista del usuario actual
-  const filteredMovies = movies.filter((movie) => {
-    const vistaUsuario = movie.vistas?.find(
-      (v) => v.usuario_id === memoizedCurrentUser?.id
-    )?.estado;
-    if (filter === "seen") return vistaUsuario === "vista";
-    if (filter === "unseen") return vistaUsuario !== "vista";
-    return true; // 'all'
-  });
-
-  // Funciones principales
-  async function addMovie(payload) {
-    if (!memoizedCurrentUser?.id) return false;
-    try {
-      const moviePayload = {
-        titulo: payload.titulo,
-        genero: payload.genero,
-        anio: payload.anio,
-        poster: payload.poster,
-        agregado_por: memoizedCurrentUser.id,
-        sinopsis: payload.sinopsis,
-        duracion: payload.duracion,
-        director: payload.director,
-      };
-      const { data: movieData, error: movieError } = await supabase
-        .from("peliculas")
-        .insert([moviePayload])
-        .select(
-          "*, vistas(*), ratings(*, usuarios(nombre)), sinopsis, duracion, director"
-        )
-        .single();
-      if (movieError) throw movieError;
-
-      let newVistas = [];
-      if (payload.vistaEstado) {
-        const { data: vistaData, error: vistaError } = await supabase
-          .from("vistas")
-          .insert([
-            {
-              usuario_id: memoizedCurrentUser.id,
-              pelicula_id: movieData.id,
-              estado: payload.vistaEstado,
-            },
-          ])
-          .select()
-          .single();
-        if (vistaError) throw vistaError;
-        newVistas = [vistaData];
-      }
-
-      const newMovie = { ...movieData, vistas: newVistas, ratings: [] };
-      setMovies((prev) => [newMovie, ...prev]);
-      return true;
-    } catch (err) {
-      console.error("Error al agregar película:", err);
-      return false;
-    }
-  }
-
-  async function toggleView(movieId, userId, estado) {
-    if (!userId) return;
-    try {
-      const { data: vistaData, error } = await supabase
-        .from("vistas")
-        .upsert(
-          { usuario_id: userId, pelicula_id: movieId, estado },
-          { onConflict: "usuario_id,pelicula_id" }
-        )
-        .select()
-        .single();
-      if (error) throw error;
-
-      setMovies((prev) =>
-        prev.map((m) =>
-          m.id === movieId
-            ? {
-                ...m,
-                vistas: m.vistas.some((v) => v.usuario_id === userId)
-                  ? m.vistas.map((v) =>
-                      v.usuario_id === userId ? { ...v, estado } : v
-                    )
-                  : [...m.vistas, vistaData],
-              }
-            : m
-        )
-      );
-    } catch (err) {
-      console.error("Error al actualizar vista:", err);
-    }
-  }
-
-  async function deleteMovie(movieId) {
-    if (!memoizedCurrentUser?.id) return;
-    try {
-      const { error } = await supabase
-        .from("peliculas")
-        .delete()
-        .eq("id", movieId)
-        .eq("agregado_por", memoizedCurrentUser.id);
-      if (error) throw error;
-      setMovies((prev) => prev.filter((m) => m.id !== movieId));
-    } catch (err) {
-      console.error("Error al eliminar película:", err);
-    }
-  }
-
-  async function updateMovie(movieId, updatedMovie) {
-    if (!memoizedCurrentUser?.id) return false;
-    try {
-      const { error } = await supabase
-        .from("peliculas")
-        .update({
-          titulo: updatedMovie.titulo,
-          genero: updatedMovie.genero,
-          anio: updatedMovie.anio,
-          poster: updatedMovie.poster,
-          sinopsis: updatedMovie.sinopsis,
-          duracion: updatedMovie.duracion,
-          director: updatedMovie.director,
-        })
-        .eq("id", movieId)
-        .eq("agregado_por", memoizedCurrentUser.id);
-      if (error) throw error;
-      setMovies((prev) =>
-        prev.map((m) => (m.id === movieId ? { ...m, ...updatedMovie } : m))
-      );
-      setIsEditModalOpen(false);
-      return true;
-    } catch (err) {
-      console.error("Error al actualizar película:", err);
-      return false;
-    }
-  }
-
-  async function updateRating(movieId, userId, rating) {
-    if (!userId) return;
-    try {
-      await supabase
-        .from("ratings")
-        .upsert(
-          { usuario_id: userId, pelicula_id: movieId, rating },
-          { onConflict: "usuario_id,pelicula_id" }
-        );
-
-      const { data: allRatings } = await supabase
-        .from("ratings")
-        .select("*")
-        .eq("pelicula_id", movieId);
-
-      setMovies((prev) =>
-        prev.map((m) =>
-          m.id === movieId ? { ...m, ratings: allRatings || [] } : m
-        )
-      );
-    } catch (err) {
-      console.error("Error al actualizar rating:", err);
-    }
-  }
-
-  async function markAsRead(notificationId) {
-    if (!memoizedCurrentUser?.id) return;
-    try {
-      await supabase
-        .from("notificaciones")
-        .update({ leida: true })
-        .eq("id", notificationId)
-        .eq("usuario_id", memoizedCurrentUser.id);
-
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, leida: true } : n))
-      );
-    } catch (err) {
-      console.error("Error al marcar notificación como leída:", err);
-    }
-  }
-
-  const [savingRatings, setSavingRatings] = useState({});
-  const handleQuickRate = async (movieId, rating) => {
-    if (!memoizedCurrentUser?.id) return;
-    setSavingRatings((s) => ({ ...s, [movieId]: true }));
-    try {
-      await updateRating(movieId, memoizedCurrentUser.id, rating);
-    } finally {
-      setSavingRatings((s) => {
-        const copy = { ...s };
-        delete copy[movieId];
-        return copy;
+        }
+      )
+      .subscribe((status) => {
+        console.log("Chat subscription status:", status);
       });
-    }
-  };
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Cargando datos...
-      </div>
-    );
-  if (error)
-    return (
-      <div className="min-h-screen flex items-center justify-center flex-col">
-        <p className="text-red-500">{error}</p>
-        <button
-          onClick={fetchAll}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Reintentar
-        </button>
-      </div>
-    );
+    return () => supabase.removeChannel(channel);
+  }, [currentUser?.id, users]);
+
+  // =======================
+  // Resetear contador al abrir chat
+  // =======================
+  useEffect(() => {
+    if (isOpen && messages.length > 0 && currentUser?.id) {
+      localStorage.setItem(lastSeenKey, messages[messages.length - 1].created_at);
+      setUnreadCount(0);
+    }
+  }, [isOpen, messages, currentUser?.id]);
+
+  // =======================
+  // Enviar mensaje
+  // =======================
+  async function sendMessage() {
+    if (!newMessage.trim() || !currentUser?.id) return;
+
+    const tempId = crypto.randomUUID();
+    const tempMsg = {
+      id: tempId,
+      usuario_id: currentUser.id,
+      mensaje: newMessage,
+      created_at: new Date().toISOString(),
+      usuarios: { nombre: currentUser.nombre || "Anónimo" },
+    };
+
+    setMessages((prev) => [...prev, tempMsg]);
+    setNewMessage("");
+    if (!isOpen) setIsOpen(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("mensajes")
+        .insert({
+          usuario_id: currentUser.id,
+          mensaje: newMessage,
+        })
+        .select("*, usuarios(nombre)")
+        .single();
+
+      if (error) throw error;
+
+      // Reemplaza el mensaje temporal con el real
+      const realMsg = {
+        ...data,
+        usuarios: { nombre: data.usuarios?.nombre || currentUser.nombre || "Anónimo" },
+      };
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === tempId ? realMsg : msg))
+      );
+    } catch (err) {
+      console.error("Error sending message:", err);
+      // Remueve el mensaje temporal si falla
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+    }
+  }
+
+  // =======================
+  // Auto-scroll al final
+  // =======================
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // =======================
+  // No mostrar chat si usuario no tiene chat habilitado
+  // =======================
+  if (!currentUser?.chat_habilitado) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar
-        currentUser={memoizedCurrentUser}
-        onOpenAdd={() => setIsAddModalOpen(true)}
-        notifications={notifications}
-        markAsRead={markAsRead}
-      />
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <section className="mb-6">
-          <div className="flex flex-col md:flex-row md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">Novedades del grupo</h1>
-              <p className="text-sm text-gray-500">
-                Explorá las recomendaciones de los pibes.
+    <>
+      {/* Botón flotante */}
+      <motion.button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-6 right-6 bg-red-600 text-white p-4 rounded-full shadow-xl hover:bg-red-700 transition-all duration-200 z-[100]"
+        title="Abrir chat"
+        whileHover={{ scale: 1.1 }}
+        transition={{ duration: 0.2 }}
+      >
+        <ChatBubbleLeftIcon className="w-7 h-7" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-black text-white text-xs font-bold rounded-full px-2 py-1 shadow">
+            {unreadCount}
+          </span>
+        )}
+      </motion.button>
+
+      {/* Panel de chat */}
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="fixed bottom-20 right-6 w-full max-w-sm bg-white rounded-xl shadow-xl z-[100] flex flex-col max-h-[70vh]"
+        >
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-xl">
+            <div className="flex items-center gap-2">
+              <ChatBubbleLeftIcon className="w-5 h-5 text-gray-600" />
+              <span className="text-sm font-semibold">Chat del grupo</span>
+            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="text-gray-500 hover:text-gray-700"
+              title="Cerrar chat"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4 bg-white">
+            {messages.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center">
+                No hay mensajes aún. ¡Sé el primero!
               </p>
-            </div>
-            <UserStats user={memoizedCurrentUser} movies={movies} />
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.usuario_id === currentUser.id ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                      msg.usuario_id === currentUser.id ? "bg-blue-100 text-right" : "bg-gray-100"
+                    }`}
+                  >
+                    <p className="font-semibold">{msg.usuarios?.nombre || "Anónimo"}</p>
+                    <p>{msg.mensaje}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(msg.created_at).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
-          <div className="mt-4 flex gap-2 justify-center md:justify-start">
-            <button
-              onClick={() => setFilter("all")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                filter === "all"
-                  ? "bg-gray-200 text-gray-800"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              Todas
-            </button>
-            <button
-              onClick={() => setFilter("seen")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                filter === "seen"
-                  ? "bg-green-600 text-white"
-                  : "bg-green-100 text-green-600 hover:bg-green-200"
-              }`}
-            >
-              Vistas
-            </button>
-            <button
-              onClick={() => setFilter("unseen")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                filter === "unseen"
-                  ? "bg-red-500 text-white"
-                  : "bg-red-100 text-red-500 hover:bg-red-200"
-              }`}
-            >
-              No vistas
-            </button>
-          </div>
-        </section>
-
-        <section className="mb-8">
-          {memoizedCurrentUser ? (
-            <MovieGrid
-              movies={filteredMovies}
-              currentUser={memoizedCurrentUser}
-              toggleView={toggleView}
-              onDelete={deleteMovie}
-              onEdit={(movie) => {
-                setMovieToEdit(movie);
-                setIsEditModalOpen(true);
-              }}
-              updateRating={updateRating}
+          <div className="flex items-center px-4 py-3 border-t border-gray-200">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              placeholder="Escribe un mensaje..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />
-          ) : (
-            <div className="text-center py-12">
-              Por favor, selecciona un usuario.
-            </div>
-          )}
-        </section>
-        <Leaderboard users={memoizedUsers} movies={movies} />
-      </main>
-
-      <AddMovieModal
-        open={isAddModalOpen}
-        setOpen={setIsAddModalOpen}
-        addMovie={addMovie}
-      />
-      <EditMovieModal
-        open={isEditModalOpen}
-        setOpen={setIsEditModalOpen}
-        movie={movieToEdit}
-        updateMovie={updateMovie}
-      />
-
-      <RatingReminderModal
-        open={showReminder}
-        onClose={() => setShowReminder(false)}
-        movies={pendingRatings}
-        userId={memoizedCurrentUser?.id}
-        updateRating={handleQuickRate}
-      />
-
-      {/* Chat panel siempre renderizado, pero condicionalmente visible */}
-      <ChatPanel currentUser={memoizedCurrentUser} users={memoizedUsers} />
-    </div>
+            <button
+              onClick={sendMessage}
+              className="ml-2 bg-red-600 text-white p-2 rounded-md hover:bg-red-700 transition disabled:opacity-50"
+              disabled={!newMessage.trim()}
+            >
+              <PaperAirplaneIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </>
   );
 }
