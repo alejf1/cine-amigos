@@ -189,7 +189,7 @@ export default function ChatPanel({ currentUser, users }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 50 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="fixed bottom-20 right-6 w-full max-w-sm bg-white rounded-xl shadow-xl z-[100] flex flex-col max-h-[70vh]"
+          className="fixed bottom-20 left-0 right-0 mx-auto w-[90%] max-w-md sm:max-w-sm bg-white rounded-xl shadow-2xl z-[100] flex flex-col max-h-[70vh] sm:bottom-20 sm:right-6 sm:left-auto"
         >
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-xl">
             <div className="flex items-center gap-2">
@@ -205,7 +205,7 @@ export default function ChatPanel({ currentUser, users }) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4 bg-white">
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-3 sm:space-y-4 bg-white">
             {messages.length === 0 ? (
               <p className="text-sm text-gray-500 text-center">
                 No hay mensajes aún. ¡Sé el primero!
@@ -217,7 +217,7 @@ export default function ChatPanel({ currentUser, users }) {
                   className={`flex ${msg.usuario_id === currentUser.id ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                    className={`max-w-[75%] sm:max-w-[80%] p-2 sm:p-3 rounded-lg text-sm ${
                       msg.usuario_id === currentUser.id ? "bg-blue-100 text-right" : "bg-gray-100"
                     }`}
                   >
@@ -233,14 +233,14 @@ export default function ChatPanel({ currentUser, users }) {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="flex items-center px-4 py-3 border-t border-gray-200">
+          <div className="flex items-center px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-200">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               placeholder="Escribe un mensaje..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="flex-1 px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />
             <button
               onClick={sendMessage}
