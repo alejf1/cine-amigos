@@ -8,7 +8,7 @@ export default function Navbar({ currentUser, onOpenAdd, notifications, markAsRe
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="text-2xl font-bold">🎬 Los pibes cinéfilos</div>
-          <div className="text-sm text-gray-500 hidden md:block">Son todos putos menos el Ale - By emi.</div>
+          <div className="text-sm text-gray-500 hidden md:block">Son todos putos menos el Ale - By Emi.</div>
         </div>
         <div className="flex items-center gap-3">
           <button
