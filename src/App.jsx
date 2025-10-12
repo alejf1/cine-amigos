@@ -353,7 +353,7 @@ export default function App({ preselectedUser }) {
         notifications={notifications}
         markAsRead={markAsRead}
       />
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main id="main-content" className="max-w-6xl mx-auto px-4 py-8">
         <section className="mb-6">
           <div className="flex flex-col md:flex-row md:justify-between gap-4">
             <div>
