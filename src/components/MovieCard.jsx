@@ -44,6 +44,9 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
   const ratings = movie.ratings || [];
   const ratingsCount = ratings.length;
   const averageRating = ratingsCount >= 2 ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratingsCount).toFixed(1) : 0;
+  
+  // Nueva lógica para advertencia de "tomate podrido"
+  const isSingleOneStar = ratingsCount === 1 && ratings[0].rating === 1;
 
   return (
     <motion.div
@@ -210,6 +213,16 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
                 >
                   Ver
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Nueva advertencia para single 1-star rating */}
+          {isSingleOneStar && (
+            <div className="flex justify-center items-center text-xs text-red-500">
+              <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded">
+                <span>🤮</span> {/* Emoji nauses */}
+                <span>Posible decepción (1 ⭐ advertencia)</span>
               </div>
             </div>
           )}
