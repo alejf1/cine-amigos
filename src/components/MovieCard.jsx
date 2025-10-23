@@ -222,7 +222,7 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
             <div className="flex justify-center items-center text-xs text-red-500">
               <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded">
                 <span>🤮</span> {/* Emoji nauses */}
-                <span>Posible decepción (1 ⭐ advertencia)</span>
+                <span>Posible decepción (Alguien le puso 1 ⭐)</span>
               </div>
             </div>
           )}
@@ -256,3 +256,4 @@ export default function MovieCard({ movie, currentUser, toggleView, onDelete, on
     </motion.div>
   );
 }
+
