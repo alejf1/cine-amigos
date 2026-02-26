@@ -21,6 +21,7 @@ export default function App({ preselectedUser }) {
   const [filter, setFilter] = useState("all"); // 'all', 'seen', 'unseen'
   const [showReminder, setShowReminder] = useState(false); // Para modal
   const [pendingRatings, setPendingRatings] = useState([]); // Películas sin calificar
+  const [searchTerm, setSearchTerm] = useState(""); // Búsqueda por título.
 
   // Carga inicial
   useEffect(() => {
@@ -32,7 +33,7 @@ export default function App({ preselectedUser }) {
     if (currentUser && movies.length > 0) {
       const pendientes = movies.filter((m) => {
         const vista = m.vistas?.find(
-          (v) => v.usuario_id === currentUser.id && v.estado === "vista"
+          (v) => v.usuario_id === currentUser.id && v.estado === "vista",
         );
         const rating = m.ratings?.find((r) => r.usuario_id === currentUser.id);
         return vista && !rating;
@@ -62,7 +63,7 @@ export default function App({ preselectedUser }) {
           },
           (payload) => {
             setNotifications((prev) => [payload.new, ...prev]);
-          }
+          },
         )
         .subscribe();
       return () => supabase.removeChannel(channel);
@@ -86,7 +87,7 @@ export default function App({ preselectedUser }) {
       const { data: peliculas, error: movieError } = await supabase
         .from("peliculas")
         .select(
-          "*, vistas(*), ratings(*, usuarios(nombre)), sinopsis, duracion, director"
+          "*, vistas(*), ratings(*, usuarios(nombre)), sinopsis, duracion, director",
         )
         .order("titulo");
       if (movieError) throw movieError;
@@ -128,11 +129,19 @@ export default function App({ preselectedUser }) {
   // Filtrar películas según el estado de vista del usuario actual
   const filteredMovies = movies.filter((movie) => {
     const vistaUsuario = movie.vistas?.find(
-      (v) => v.usuario_id === currentUser?.id
+      (v) => v.usuario_id === currentUser?.id,
     )?.estado;
-    if (filter === "seen") return vistaUsuario === "vista";
-    if (filter === "unseen") return vistaUsuario !== "vista";
-    return true; // 'all'
+
+    const matchesFilter =
+      filter === "all" ||
+      (filter === "seen" && vistaUsuario === "vista") ||
+      (filter === "unseen" && vistaUsuario !== "vista");
+
+    const matchesSearch = movie.titulo
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    return matchesFilter && matchesSearch;
   });
 
   // -------------------------------
@@ -155,7 +164,7 @@ export default function App({ preselectedUser }) {
         .from("peliculas")
         .insert([moviePayload])
         .select(
-          "*, vistas(*), ratings(*, usuarios(nombre)), sinopsis, duracion, director"
+          "*, vistas(*), ratings(*, usuarios(nombre)), sinopsis, duracion, director",
         )
         .single();
       if (movieError) throw movieError;
@@ -193,7 +202,7 @@ export default function App({ preselectedUser }) {
         .from("vistas")
         .upsert(
           { usuario_id: userId, pelicula_id: movieId, estado },
-          { onConflict: "usuario_id,pelicula_id" }
+          { onConflict: "usuario_id,pelicula_id" },
         )
         .select()
         .single();
@@ -206,12 +215,12 @@ export default function App({ preselectedUser }) {
                 ...m,
                 vistas: m.vistas.some((v) => v.usuario_id === userId)
                   ? m.vistas.map((v) =>
-                      v.usuario_id === userId ? { ...v, estado } : v
+                      v.usuario_id === userId ? { ...v, estado } : v,
                     )
                   : [...m.vistas, vistaData],
               }
-            : m
-        )
+            : m,
+        ),
       );
     } catch (err) {
       console.error("Error al actualizar vista:", err);
@@ -251,7 +260,7 @@ export default function App({ preselectedUser }) {
         .eq("agregado_por", currentUser.id);
       if (error) throw error;
       setMovies((prev) =>
-        prev.map((m) => (m.id === movieId ? { ...m, ...updatedMovie } : m))
+        prev.map((m) => (m.id === movieId ? { ...m, ...updatedMovie } : m)),
       );
       setIsEditModalOpen(false);
       return true;
@@ -268,7 +277,7 @@ export default function App({ preselectedUser }) {
         .from("ratings")
         .upsert(
           { usuario_id: userId, pelicula_id: movieId, rating },
-          { onConflict: "usuario_id,pelicula_id" }
+          { onConflict: "usuario_id,pelicula_id" },
         );
 
       const { data: allRatings } = await supabase
@@ -278,8 +287,8 @@ export default function App({ preselectedUser }) {
 
       setMovies((prev) =>
         prev.map((m) =>
-          m.id === movieId ? { ...m, ratings: allRatings || [] } : m
-        )
+          m.id === movieId ? { ...m, ratings: allRatings || [] } : m,
+        ),
       );
     } catch (err) {
       console.error("Error al actualizar rating:", err);
@@ -296,7 +305,7 @@ export default function App({ preselectedUser }) {
         .eq("usuario_id", currentUser.id);
 
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, leida: true } : n))
+        prev.map((n) => (n.id === notificationId ? { ...n, leida: true } : n)),
       );
     } catch (err) {
       console.error("Error al marcar notificación como leída:", err);
@@ -366,7 +375,7 @@ export default function App({ preselectedUser }) {
           </div>
 
           {/* Filtros */}
-          <div className="mt-4 flex gap-2 justify-center md:justify-start">
+          <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start items-center">
             <button
               onClick={() => setFilter("all")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
@@ -397,6 +406,13 @@ export default function App({ preselectedUser }) {
             >
               No vistas
             </button>
+            <input
+              type="text"
+              placeholder="Buscar por título..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 rounded-md text-sm border border-gray-300 focus:border-blue-500 focus:outline-none flex-1 md:flex-none md:w-64"
+            />
           </div>
         </section>
 
