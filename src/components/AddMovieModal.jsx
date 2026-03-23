@@ -14,14 +14,29 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
   const [loading, setLoading] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [viewStatus, setViewStatus] = useState("vista");
+  const [duplicateError, setDuplicateError] = useState(""); // ✅ Nuevo estado para error de duplicado
   const { suggestions, searchLoading, handleSuggestionSelect } = useMovieSearch(titulo, isSelecting, setIsSelecting);
+
+  function resetForm() {
+    setTitulo("");
+    setGenero("");
+    setAnio("");
+    setPoster("");
+    setSinopsis("");
+    setDuracion(0);
+    setDirector("");
+    setViewStatus("vista");
+    setIsSelecting(false);
+    setDuplicateError("");
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!titulo || !genero) return alert("Título y género son obligatorios");
     setLoading(true);
+    setDuplicateError(""); // Limpiar error previo
 
-    const ok = await addMovie({
+    const result = await addMovie({
       titulo,
       genero,
       anio: anio ? parseInt(anio) : null,
@@ -29,20 +44,19 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
       vistaEstado: viewStatus,
       sinopsis,
       duracion,
-      director
+      director,
     });
 
     setLoading(false);
-    if (ok) {
-      setTitulo("");
-      setGenero("");
-      setAnio("");
-      setPoster("");
-      setSinopsis("");
-      setDuracion(0);
-      setDirector("");
-      setViewStatus("vista");
-      setIsSelecting(false);
+
+    // ✅ Película duplicada: mostrar error inline y no cerrar el modal
+    if (result?.duplicate) {
+      setDuplicateError(result.mensaje);
+      return;
+    }
+
+    if (result === true) {
+      resetForm();
       setOpen(false);
     } else {
       alert("Error al agregar la película");
@@ -60,6 +74,15 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
           <Transition.Child as={Fragment}>
             <Dialog.Panel className="max-w-md w-full bg-white rounded-xl p-6 shadow-lg">
               <Dialog.Title className="text-lg font-bold mb-2">Añadir película</Dialog.Title>
+
+              {/* ✅ Banner de error por duplicado */}
+              {duplicateError && (
+                <div className="mb-3 flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                  <span className="mt-0.5">⚠️</span>
+                  <span>{duplicateError}</span>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="relative">
                   <input
@@ -67,9 +90,10 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                     onChange={e => {
                       setTitulo(e.target.value);
                       setIsSelecting(false);
+                      setDuplicateError(""); // Limpiar error al modificar título
                     }}
                     placeholder="Título (se autocompletará)"
-                    className="w-full border p-2 rounded"
+                    className={`w-full border p-2 rounded ${duplicateError ? "border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400" : ""}`}
                     required
                   />
                   {suggestions.length > 0 && !isSelecting && (
@@ -100,6 +124,7 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                             <button
                               type="button"
                               onClick={() => {
+                                setDuplicateError(""); // Limpiar error al seleccionar sugerencia
                                 handleSuggestionSelect(sug, setTitulo, setGenero, setAnio, setPoster, setIsSelecting, setSinopsis, setDuracion, setDirector);
                               }}
                               className="text-blue-600 hover:text-blue-800 text-sm"
@@ -184,9 +209,18 @@ export default function AddMovieModal({ open, setOpen, addMovie }) {
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded bg-gray-100">Cancelar</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetForm();
+                      setOpen(false);
+                    }}
+                    className="px-4 py-2 rounded bg-gray-100"
+                  >
+                    Cancelar
+                  </button>
                   <button type="submit" className="px-4 py-2 rounded bg-red-600 text-white" disabled={loading}>
-                    {loading ? "Guardando..." : "Agregar"}
+                    {loading ? "Verificando..." : "Agregar"}
                   </button>
                 </div>
               </form>
