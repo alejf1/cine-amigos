@@ -6,7 +6,7 @@ import AddMovieModal from "./components/AddMovieModal";
 import EditMovieModal from "./components/EditMovieModal";
 import UserStats from "./components/UserStats";
 import Leaderboard from "./components/Leaderboard";
-import RatingReminderModal from "./components/RatingReminderModal"; // ← NUEVO
+import RatingReminderModal from "./components/RatingReminderModal";
 
 export default function App({ preselectedUser }) {
   const [users, setUsers] = useState([]);
@@ -19,9 +19,9 @@ export default function App({ preselectedUser }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all"); // 'all', 'seen', 'unseen'
-  const [showReminder, setShowReminder] = useState(false); // Para modal
-  const [pendingRatings, setPendingRatings] = useState([]); // Películas sin calificar
-  const [searchTerm, setSearchTerm] = useState(""); // Búsqueda por título.
+  const [showReminder, setShowReminder] = useState(false);
+  const [pendingRatings, setPendingRatings] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Carga inicial
   useEffect(() => {
@@ -150,6 +150,23 @@ export default function App({ preselectedUser }) {
   async function addMovie(payload) {
     if (!currentUser?.id) return false;
     try {
+      // ✅ Verificar si ya existe una película con ese título (case-insensitive)
+      const { data: existing, error: checkError } = await supabase
+        .from("peliculas")
+        .select("id, titulo, agregado_por, usuarios(nombre)")
+        .ilike("titulo", payload.titulo)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existing) {
+        const quien = existing.usuarios?.nombre || "alguien del grupo";
+        return {
+          duplicate: true,
+          mensaje: `"${existing.titulo}" ya fue cargada por ${quien}.`,
+        };
+      }
+
       const moviePayload = {
         titulo: payload.titulo,
         genero: payload.genero,
@@ -312,12 +329,7 @@ export default function App({ preselectedUser }) {
     }
   }
 
-  // ----------------------------------------
-  // Para mostrar modal de pendientes de calificar
-  // ----------------------------------------
-
-  // Para control de botones mientras se guarda rating rápido
-  const [savingRatings, setSavingRatings] = useState({}); // { [movieId]: true }
+  const [savingRatings, setSavingRatings] = useState({});
   const handleQuickRate = async (movieId, rating) => {
     if (!currentUser?.id) return;
     setSavingRatings((s) => ({ ...s, [movieId]: true }));
@@ -332,9 +344,6 @@ export default function App({ preselectedUser }) {
     }
   };
 
-  // ----------------------------------------
-  // Render
-  // ----------------------------------------
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -450,13 +459,12 @@ export default function App({ preselectedUser }) {
         updateMovie={updateMovie}
       />
 
-      {/* Modal de recordatorio de calificación */}
       <RatingReminderModal
         open={showReminder}
         onClose={() => setShowReminder(false)}
         movies={pendingRatings}
         userId={currentUser?.id}
-        updateRating={handleQuickRate} // usa handleQuickRate con control de botones
+        updateRating={handleQuickRate}
       />
     </div>
   );
